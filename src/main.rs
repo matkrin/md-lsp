@@ -7,11 +7,12 @@ use lsp_types::{
 };
 use lsp_types::{
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
-    GotoDefinitionParams, HoverParams, HoverProviderCapability, OneOf, Position,
-    TextDocumentSyncCapability, TextDocumentSyncKind,
+    GotoDefinitionParams, Hover, HoverParams, HoverProviderCapability, MarkupContent, MarkupKind,
+    OneOf, Position, TextDocumentSyncCapability, TextDocumentSyncKind,
 };
 
 use lsp_server::{Connection, ExtractError, Message, Request, RequestId, Response};
+use markdown::mdast::{self, Node};
 
 fn main() -> Result<()> {
     // Note that  we must have our logging only write out to stderr.
@@ -128,7 +129,7 @@ impl Server {
         log::info!("GOT didOpen NOTIFICATION : {:?}", params);
         state.md_buffer = params.text_document.text;
         let ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm());
-        log::info!("MARKDOWN AST: {:?}", ast);
+        // log::info!("MARKDOWN AST: {:?}", ast);
 
         Ok(())
     }
@@ -166,10 +167,11 @@ impl Server {
         Ok(())
     }
 
+    /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_hover
     fn handle_hover(&self, req: lsp_server::Request, state: &State) -> Result<()> {
         let params: HoverParams = serde_json::from_value(req.params)?;
         let position_params = params.text_document_position_params;
-        let uri = position_params.text_document.uri;
+        let _uri = position_params.text_document.uri;
         let Position { line, character } = position_params.position;
         let ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm()).unwrap();
         let node = find_node_for_position(&ast, line, character);
@@ -177,23 +179,69 @@ impl Server {
         log::info!("AST : {:?}", ast);
         log::info!("POSITION LINE: {}, CHARACTER: {}", line, character);
         log::info!("FOUND NODE : {:?}", node);
+
+        if node.is_none() {
+            self.connection.sender.send(Message::Response(Response {
+                id: req.id,
+                result: None,
+                error: None,
+            }))?;
+            return Ok(());
+        }
+
+
+        let mut msg = String::new();
+        if let Some(n) = node {
+            match n {
+                Node::Link(link) => msg = link.url.clone(),
+                // Node::LinkReference => {}
+                // Node::FootnoteReference => {}
+                _ => msg = "not Link".to_string(),
+            }
+        }
+        let result = Some(Hover {
+            contents: lsp_types::HoverContents::Markup(MarkupContent {
+                kind: MarkupKind::PlainText,
+                value: msg,
+            }),
+            range: None,
+        });
+        let result = serde_json::to_value(result).unwrap();
+        let response = Response {
+            id: req.id,
+            result: Some(result),
+            error: None,
+        };
+        self.connection.sender.send(Message::Response(response))?;
+
         Ok(())
     }
 }
 
-fn find_node_for_position(node: &markdown::mdast::Node, line: u32, character: u32) -> Option<&markdown::mdast::Node> {
+fn find_node_for_position(node: &Node, line: u32, character: u32) -> Option<&Node> {
     if let Some(children) = node.children() {
         for child in children {
-            if let Some(pos) = child.position() {
-                if (line + 1) as usize >= pos.start.line && (line + 1) as usize <= pos.end.line {
-                    if ((character + 1) as usize) >= pos.start.column && ((character + 1) as usize) <= pos.end.column {
-                        log::info!("CHILD: {:?}", child);
-                        return Some(child);
+            match child {
+                Node::Link(mdast::Link { position, .. })
+                | Node::LinkReference(mdast::LinkReference { position, .. })
+                | Node::FootnoteReference(mdast::FootnoteReference { position, .. }) => {
+                    if let Some(pos) = position {
+                        if (line + 1) as usize >= pos.start.line
+                            && (line + 1) as usize <= pos.end.line
+                            && ((character + 1) as usize) >= pos.start.column
+                            && ((character + 1) as usize) <= pos.end.column
+                        {
+                            log::info!("SHOULD RETURN CHILD: {:?}", &child);
+                            return Some(child);
+                        }
                     }
                 }
-                find_node_for_position(child, line, character);
-            } else {
-                find_node_for_position(child, line, character); 
+                _ => {
+                    let n = find_node_for_position(child, line, character);
+                    if n.is_some() {
+                        return n;
+                    }
+                }
             }
         }
     }

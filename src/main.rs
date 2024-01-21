@@ -10,6 +10,7 @@ use lsp_types::{GotoDefinitionResponse, InitializeParams, ServerCapabilities};
 
 use lsp_server::{Connection, Message, Response};
 use markdown::mdast::Node;
+use md_lsp::ast::make_wiki_links;
 use md_lsp::hover::{
     find_def_for_footnote_ref, find_def_for_link_ref, find_link_for_position, handle_heading_links,
     State, get_footnote_def_text, get_footnote_identifier, handle_footnote_reference,
@@ -83,7 +84,7 @@ impl Server {
                     log::info!("GOT REQUEST: {req:?}");
                     match req.method.as_ref() {
                         "textDocument/definition" => {
-                            self.handle_defintion(req)?;
+                            self.handle_defintion(req, &state)?;
                         }
                         "textDocument/hover" => self.handle_hover(req, &state)?,
                         _ => {
@@ -119,10 +120,9 @@ impl Server {
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_didOpen
     fn handle_did_open(&self, not: lsp_server::Notification, state: &mut State) -> Result<()> {
         let params: DidOpenTextDocumentParams = serde_json::from_value(not.params)?;
-        log::info!("GOT didOpen NOTIFICATION : {:?}", params);
+        // log::info!("GOT didOpen NOTIFICATION : {:?}", params);
         state.md_buffer = params.text_document.text;
-        let _ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm());
-        // log::info!("MARKDOWN AST: {:?}", ast);
+        // let _ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm());
 
         Ok(())
     }
@@ -140,15 +140,33 @@ impl Server {
 
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_didClose
     fn handle_did_close(&self, not: lsp_server::Notification) -> Result<()> {
-        let params: DidCloseTextDocumentParams = serde_json::from_value(not.params)?;
-        log::info!("GOT didClose NOT : {:?}", params);
+        let _params: DidCloseTextDocumentParams = serde_json::from_value(not.params)?;
+        // log::info!("GOT didClose NOT : {:?}", params);
 
         Ok(())
     }
 
-    fn handle_defintion(&self, req: lsp_server::Request) -> Result<()> {
+    /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition
+    fn handle_defintion(&self, req: lsp_server::Request, state: &State) -> Result<()> {
         let params: GotoDefinitionParams = serde_json::from_value(req.params)?;
         log::info!("GOT gotoDefinition REQUEST #{}: {:?}", req.id, params);
+        let position_params = params.text_document_position_params;
+        let _uri = position_params.text_document.uri;
+        let Position { line, character } = position_params.position;
+        let ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm())
+            .expect("Couldn't parse md");
+        let node = find_link_for_position(&ast, line, character);
+
+        let mut msg = String::new();
+        if let Some(n) = node {
+            match n {
+                Node::Link(link) => {},
+                Node::LinkReference(link_ref) => {},
+                Node::FootnoteReference(foot_ref) => {},
+                _ => {},
+            }
+        }
+
         let result = Some(GotoDefinitionResponse::Array(Vec::new()));
         let result = serde_json::to_value(result).unwrap();
         let resp = Response {
@@ -166,8 +184,9 @@ impl Server {
         let position_params = params.text_document_position_params;
         let _uri = position_params.text_document.uri;
         let Position { line, character } = position_params.position;
-        let ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm())
+        let mut ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm())
             .expect("Couldn't parse md");
+        make_wiki_links(&mut ast);
         let node = find_link_for_position(&ast, line, character);
 
         log::info!("AST : {:?}", ast);

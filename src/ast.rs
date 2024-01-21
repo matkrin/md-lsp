@@ -9,6 +9,51 @@ struct Extracted {
     start_position: usize,
     line_number: usize,
 }
+
+impl Extracted {
+    fn link_text_node(&self, start_line: usize) -> Node {
+        let link_text = mdast::Text {
+            value: self.content.clone(),
+            position: Some(Position {
+                start: Point {
+                    line: start_line + self.line_number,
+                    column: self.start_position,
+                    offset: self.start_position,
+                },
+                end: Point {
+                    line: start_line + self.line_number,
+                    column: self.start_position + self.content.len(),
+                    offset: self.start_position + self.content.len(),
+                },
+            }),
+        };
+        Node::Text(link_text)
+    }
+
+    fn link_node(&self, start_line: usize) -> Node {
+        let link_text_node = self.link_text_node(start_line);
+
+        let link = Link {
+            children: vec![link_text_node],
+            position: Some(Position {
+                start: Point {
+                    line: start_line + self.line_number,
+                    column: self.start_position - 2,
+                    offset: self.start_position - 2,
+                },
+                end: Point {
+                    line: start_line + self.line_number,
+                    column: self.start_position + self.content.len() + 2,
+                    offset: self.start_position + self.content.len() + 2,
+                },
+            }),
+            url: self.content.clone(),
+            title: Some(self.content.clone()),
+        };
+        Node::Link(link)
+    }
+}
+
 fn extract_links(input: &str) -> Vec<Extracted> {
     let re = Regex::new(r"\[\[([\s\S]*?)\]\]").unwrap();
 
@@ -37,41 +82,8 @@ pub fn make_wiki_links(node: &mut Node) {
                     let extracted = extract_links(&t.value);
 
                     for i in extracted {
-                        let link_text_ast = mdast::Text {
-                            value: i.content.clone(),
-                            position: Some(Position {
-                                start: Point {
-                                    line: t_position.start.line + i.line_number,
-                                    column: i.start_position,
-                                    offset: i.start_position,
-                                },
-                                end: Point {
-                                    line: t_position.start.line + i.line_number,
-                                    column: i.start_position + i.content.len(),
-                                    offset: i.start_position + i.content.len(),
-                                },
-                            }),
-                        };
-
-                        let link_ast = Link {
-                            children: vec![Node::Text(link_text_ast)],
-                            position: Some(Position {
-                                start: Point {
-                                    line: t_position.start.line + i.line_number,
-                                    column: i.start_position - 2,
-                                    offset: i.start_position - 2,
-                                },
-                                end: Point {
-                                    line: t_position.start.line + i.line_number,
-                                    column: i.start_position + i.content.len() + 2,
-                                    offset: i.start_position + i.content.len() + 2,
-                                },
-                            }),
-                            url: i.content.clone(),
-                            title: Some(i.content),
-                        };
-
-                        links.push(Node::Link(link_ast))
+                        let link_ast = i.link_node(t_position.start.line);
+                        links.push(link_ast);
                     }
                 }
             }

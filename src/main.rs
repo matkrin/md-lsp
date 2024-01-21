@@ -1,18 +1,16 @@
 use std::fs::File;
 
 use anyhow::Result;
-use lsp_types::request::HoverRequest;
-use lsp_types::{
-    request::GotoDefinition, GotoDefinitionResponse, InitializeParams, ServerCapabilities,
-};
 use lsp_types::{
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
     GotoDefinitionParams, Hover, HoverParams, HoverProviderCapability, MarkupContent, MarkupKind,
     OneOf, Position, TextDocumentSyncCapability, TextDocumentSyncKind,
 };
+use lsp_types::{GotoDefinitionResponse, InitializeParams, ServerCapabilities};
 
-use lsp_server::{Connection, ExtractError, Message, Request, RequestId, Response};
-use markdown::mdast::{self, Node};
+use lsp_server::{Connection, Message, Response};
+use markdown::mdast::Node;
+use md_lsp::hover::{find_heading_for_url, find_next_heading, find_node_for_position};
 
 fn main() -> Result<()> {
     // Note that  we must have our logging only write out to stderr.
@@ -59,16 +57,12 @@ fn main() -> Result<()> {
 fn main_loop(connection: Connection, params: serde_json::Value) -> Result<()> {
     let _params: InitializeParams = serde_json::from_value(params).unwrap();
     log::info!("starting example main loop");
-    let server = Server {
-        connection,
-        md_buffer: "".to_string(),
-    };
+    let server = Server { connection };
     server.run()
 }
 
 struct Server {
     connection: Connection,
-    md_buffer: String,
 }
 
 struct State {
@@ -128,7 +122,7 @@ impl Server {
         let params: DidOpenTextDocumentParams = serde_json::from_value(not.params)?;
         log::info!("GOT didOpen NOTIFICATION : {:?}", params);
         state.md_buffer = params.text_document.text;
-        let ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm());
+        let _ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm());
         // log::info!("MARKDOWN AST: {:?}", ast);
 
         Ok(())
@@ -176,6 +170,8 @@ impl Server {
         let ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm()).unwrap();
         let node = find_node_for_position(&ast, line, character);
 
+        let children = ast.children().unwrap();
+
         log::info!("AST : {:?}", ast);
         log::info!("POSITION LINE: {}, CHARACTER: {}", line, character);
         log::info!("FOUND NODE : {:?}", node);
@@ -189,11 +185,38 @@ impl Server {
             return Ok(());
         }
 
-
         let mut msg = String::new();
         if let Some(n) = node {
             match n {
-                Node::Link(link) => msg = link.url.clone(),
+                Node::Link(link) => {
+                    if link.url.starts_with('#') {
+                        // link to heading
+                        let linked_heading = find_heading_for_url(&ast, &link.url);
+                        log::info!("LinkeD HEADING: {:?}", linked_heading);
+                        if let Some(heading) = linked_heading {
+                            let linked_heading_end = heading.position.as_ref().unwrap().end.line;
+                            let depth = heading.depth;
+                            let next_heading = find_next_heading(&ast, linked_heading_end, depth);
+                            let start_line = heading.position.as_ref().unwrap().start.line;
+                            let end_line =
+                                next_heading.map(|h| h.position.as_ref().unwrap().start.line);
+                            let buffer_lines = state.md_buffer.lines().collect::<Vec<_>>();
+                            msg = if let Some(el) = end_line {
+                                buffer_lines[(start_line - 1)..(el - 1)]
+                                    .iter()
+                                    .map(|x| x.to_string() + "\n")
+                                    .collect::<String>()
+                            } else {
+                                buffer_lines[(start_line - 1)..]
+                                    .iter()
+                                    .map(|x| x.to_string() + "\n")
+                                    .collect::<String>()
+                            };
+                        };
+                    } else {
+                        msg = link.url.clone()
+                    }
+                }
                 // Node::LinkReference => {}
                 // Node::FootnoteReference => {}
                 _ => msg = "not Link".to_string(),
@@ -201,7 +224,7 @@ impl Server {
         }
         let result = Some(Hover {
             contents: lsp_types::HoverContents::Markup(MarkupContent {
-                kind: MarkupKind::PlainText,
+                kind: MarkupKind::Markdown,
                 value: msg,
             }),
             range: None,
@@ -216,34 +239,4 @@ impl Server {
 
         Ok(())
     }
-}
-
-fn find_node_for_position(node: &Node, line: u32, character: u32) -> Option<&Node> {
-    if let Some(children) = node.children() {
-        for child in children {
-            match child {
-                Node::Link(mdast::Link { position, .. })
-                | Node::LinkReference(mdast::LinkReference { position, .. })
-                | Node::FootnoteReference(mdast::FootnoteReference { position, .. }) => {
-                    if let Some(pos) = position {
-                        if (line + 1) as usize >= pos.start.line
-                            && (line + 1) as usize <= pos.end.line
-                            && ((character + 1) as usize) >= pos.start.column
-                            && ((character + 1) as usize) <= pos.end.column
-                        {
-                            log::info!("SHOULD RETURN CHILD: {:?}", &child);
-                            return Some(child);
-                        }
-                    }
-                }
-                _ => {
-                    let n = find_node_for_position(child, line, character);
-                    if n.is_some() {
-                        return n;
-                    }
-                }
-            }
-        }
-    }
-    None
 }

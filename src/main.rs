@@ -10,7 +10,10 @@ use lsp_types::{GotoDefinitionResponse, InitializeParams, ServerCapabilities};
 
 use lsp_server::{Connection, Message, Response};
 use markdown::mdast::Node;
-use md_lsp::hover::{find_heading_for_url, find_next_heading, find_node_for_position};
+use md_lsp::hover::{
+    find_def_for_footnote_ref, find_def_for_link_ref, find_link_for_position, handle_heading_links,
+    State, get_footnote_def_text, get_footnote_identifier, handle_footnote_reference,
+};
 
 fn main() -> Result<()> {
     // Note that  we must have our logging only write out to stderr.
@@ -63,10 +66,6 @@ fn main_loop(connection: Connection, params: serde_json::Value) -> Result<()> {
 
 struct Server {
     connection: Connection,
-}
-
-struct State {
-    md_buffer: String,
 }
 
 impl Server {
@@ -167,10 +166,9 @@ impl Server {
         let position_params = params.text_document_position_params;
         let _uri = position_params.text_document.uri;
         let Position { line, character } = position_params.position;
-        let ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm()).unwrap();
-        let node = find_node_for_position(&ast, line, character);
-
-        let children = ast.children().unwrap();
+        let ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm())
+            .expect("Couldn't parse md");
+        let node = find_link_for_position(&ast, line, character);
 
         log::info!("AST : {:?}", ast);
         log::info!("POSITION LINE: {}, CHARACTER: {}", line, character);
@@ -191,34 +189,20 @@ impl Server {
                 Node::Link(link) => {
                     if link.url.starts_with('#') {
                         // link to heading
-                        let linked_heading = find_heading_for_url(&ast, &link.url);
-                        log::info!("LinkeD HEADING: {:?}", linked_heading);
-                        if let Some(heading) = linked_heading {
-                            let linked_heading_end = heading.position.as_ref().unwrap().end.line;
-                            let depth = heading.depth;
-                            let next_heading = find_next_heading(&ast, linked_heading_end, depth);
-                            let start_line = heading.position.as_ref().unwrap().start.line;
-                            let end_line =
-                                next_heading.map(|h| h.position.as_ref().unwrap().start.line);
-                            let buffer_lines = state.md_buffer.lines().collect::<Vec<_>>();
-                            msg = if let Some(el) = end_line {
-                                buffer_lines[(start_line - 1)..(el - 1)]
-                                    .iter()
-                                    .map(|x| x.to_string() + "\n")
-                                    .collect::<String>()
-                            } else {
-                                buffer_lines[(start_line - 1)..]
-                                    .iter()
-                                    .map(|x| x.to_string() + "\n")
-                                    .collect::<String>()
-                            };
-                        };
+                        msg = handle_heading_links(&ast, link, state);
                     } else {
                         msg = link.url.clone()
                     }
                 }
-                // Node::LinkReference => {}
-                // Node::FootnoteReference => {}
+                Node::LinkReference(link_ref) => {
+                    let def = find_def_for_link_ref(&ast, link_ref);
+                    if let Some(d) = def {
+                        msg = format!("[{}]: {}", d.identifier, d.url);
+                    }
+                }
+                Node::FootnoteReference(foot_ref) => {
+                    msg = handle_footnote_reference(&ast, foot_ref);
+                }
                 _ => msg = "not Link".to_string(),
             }
         }
@@ -229,7 +213,7 @@ impl Server {
             }),
             range: None,
         });
-        let result = serde_json::to_value(result).unwrap();
+        let result = serde_json::to_value(result)?;
         let response = Response {
             id: req.id,
             result: Some(result),

@@ -4,16 +4,16 @@ use anyhow::Result;
 use lsp_types::{
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
     GotoDefinitionParams, Hover, HoverParams, HoverProviderCapability, Location, MarkupContent,
-    MarkupKind, OneOf, Position, Range, TextDocumentSyncCapability, TextDocumentSyncKind,
+    MarkupKind, OneOf, Position, TextDocumentSyncCapability, TextDocumentSyncKind,
 };
 use lsp_types::{GotoDefinitionResponse, InitializeParams, ServerCapabilities};
 
 use lsp_server::{Connection, Message, Response};
 use markdown::mdast::Node;
-use md_lsp::ast::make_wiki_links;
+use md_lsp::ast::{find_link_for_position, make_wiki_links};
+use md_lsp::definition::def_handle_link_to_heading;
 use md_lsp::hover::{
-    find_def_for_link_ref, find_heading_for_url, find_link_for_position, handle_footnote_reference,
-    handle_heading_links, State,
+    hov_handle_footnote_reference, hov_handle_heading_links, hov_handle_link_reference, State,
 };
 
 fn main() -> Result<()> {
@@ -158,46 +158,30 @@ impl Server {
         let node = find_link_for_position(&ast, line, character);
         log::info!("GOTO FOUND NODE : {:?}", node);
 
-        let range = if let Some(n) = node {
-            match n {
-                Node::Link(link) => {
-                    if link.url.starts_with('#') {
-                        let linked_heading = find_heading_for_url(&ast, &link.url);
-                        if let Some(heading) = linked_heading {
-                            heading.position.as_ref().map(|pos| Range {
-                                start: Position {
-                                    line: (pos.start.line - 1) as u32,
-                                    character: (pos.start.column - 1) as u32,
-                                },
-                                end: Position {
-                                    line: (pos.end.line - 1) as u32,
-                                    character: (pos.end.column - 1) as u32,
-                                },
-                            })
+        let range = match node {
+            Some(n) => {
+                match n {
+                    Node::Link(link) => {
+                        if link.url.starts_with('#') {
+                            def_handle_link_to_heading(&ast, &link.url)
                         } else {
+                            // when workspace -> link to other file
                             None
                         }
-                    } else {
-                        None
                     }
+                    Node::LinkReference(link_ref) => None,
+                    Node::FootnoteReference(foot_ref) => None,
+                    _ => None,
                 }
-                Node::LinkReference(link_ref) => {
-                    None
-                }
-                Node::FootnoteReference(foot_ref) => {
-                    None
-                }
-                _ => None,
             }
-        } else {
-            None
+            None => None,
         };
 
         let result = match range {
             Some(r) => {
                 let location = Location { uri, range: r };
                 let result = Some(GotoDefinitionResponse::Scalar(location));
-                Some(serde_json::to_value(result)?)
+                serde_json::to_value(result).ok()
             }
             None => None,
         };
@@ -236,40 +220,45 @@ impl Server {
             return Ok(());
         }
 
-        let mut msg = String::new();
-        if let Some(n) = node {
-            match n {
-                Node::Link(link) => {
-                    if link.url.starts_with('#') {
-                        // link to heading
-                        msg = handle_heading_links(&ast, link, state);
-                    } else {
-                        msg = link.url.clone()
+        let message = match node {
+            Some(n) => {
+                match n {
+                    Node::Link(link) => {
+                        if link.url.starts_with('#') {
+                            // link to heading
+                            hov_handle_heading_links(&ast, link, state)
+                        } else {
+                            // when workspace -> link to other file
+                            Some(link.url.clone())
+                        }
                     }
-                }
-                Node::LinkReference(link_ref) => {
-                    let def = find_def_for_link_ref(&ast, link_ref);
-                    if let Some(d) = def {
-                        msg = format!("[{}]: {}", d.identifier, d.url);
+                    Node::LinkReference(link_ref) => hov_handle_link_reference(&ast, link_ref),
+                    Node::FootnoteReference(foot_ref) => {
+                        hov_handle_footnote_reference(&ast, foot_ref)
                     }
+                    _ => None,
                 }
-                Node::FootnoteReference(foot_ref) => {
-                    msg = handle_footnote_reference(&ast, foot_ref);
-                }
-                _ => msg = "not Link".to_string(),
             }
-        }
-        let result = Some(Hover {
-            contents: lsp_types::HoverContents::Markup(MarkupContent {
-                kind: MarkupKind::Markdown,
-                value: msg,
-            }),
-            range: None,
-        });
-        let result = serde_json::to_value(result)?;
+            None => None,
+        };
+
+        let result = match message {
+            Some(msg) => {
+                let result = Some(Hover {
+                    contents: lsp_types::HoverContents::Markup(MarkupContent {
+                        kind: MarkupKind::Markdown,
+                        value: msg,
+                    }),
+                    range: None,
+                });
+                serde_json::to_value(result).ok()
+            }
+            None => None,
+        };
+
         let response = Response {
             id: req.id,
-            result: Some(result),
+            result,
             error: None,
         };
         self.connection.sender.send(Message::Response(response))?;

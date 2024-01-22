@@ -1,5 +1,5 @@
 use markdown::{
-    mdast::{self, Link, Node},
+    mdast::{FootnoteReference, Heading, Link, LinkReference, Node, Text},
     unist::{Point, Position},
 };
 use regex::Regex;
@@ -12,7 +12,7 @@ struct Extracted {
 
 impl Extracted {
     fn link_text_node(&self, start_line: usize) -> Node {
-        let link_text = mdast::Text {
+        let link_text = Text {
             value: self.content.clone(),
             position: Some(Position {
                 start: Point {
@@ -72,7 +72,7 @@ fn extract_links(input: &str) -> Vec<Extracted> {
         .collect()
 }
 
-pub fn make_wiki_links(node: &mut Node) {
+pub fn parse_wiki_links(node: &mut Node) {
     let mut links = Vec::new();
     if let Some(children) = node.children() {
         for child in children {
@@ -95,14 +95,14 @@ pub fn make_wiki_links(node: &mut Node) {
     // recurse through children
     if let Some(children) = node.children_mut() {
         for child in children {
-            make_wiki_links(child);
+            parse_wiki_links(child);
         }
     }
 }
 
-pub fn find_heading_for_url<'a>(node: &'a Node, link_url: &str) -> Option<&'a mdast::Heading> {
+pub fn find_heading_for_url<'a>(node: &'a Node, link_url: &str) -> Option<&'a Heading> {
     if let Node::Heading(heading) = node {
-        if let Some(Node::Text(mdast::Text { value, .. })) = heading.children.first() {
+        if let Some(Node::Text(Text { value, .. })) = heading.children.first() {
             if value == &link_url.replace('#', "") {
                 return Some(heading);
             }
@@ -122,9 +122,9 @@ pub fn find_heading_for_url<'a>(node: &'a Node, link_url: &str) -> Option<&'a md
 
 pub fn find_link_for_position(node: &Node, line: u32, character: u32) -> Option<&Node> {
     match node {
-        Node::Link(mdast::Link { position, .. })
-        | Node::LinkReference(mdast::LinkReference { position, .. })
-        | Node::FootnoteReference(mdast::FootnoteReference { position, .. }) => {
+        Node::Link(Link { position, .. })
+        | Node::LinkReference(LinkReference { position, .. })
+        | Node::FootnoteReference(FootnoteReference { position, .. }) => {
             if let Some(pos) = position {
                 if (line + 1) as usize >= pos.start.line
                     && (line + 1) as usize <= pos.end.line
@@ -158,7 +158,7 @@ mod test {
         let md = "Wikilink [[link]] in paragraph";
         let mut ast = markdown::to_mdast(md, &markdown::ParseOptions::gfm()).unwrap();
         // dbg!(&ast);
-        make_wiki_links(&mut ast);
+        parse_wiki_links(&mut ast);
         // dbg!(&ast);
     }
 
@@ -168,7 +168,7 @@ mod test {
 Wikilink [[link]] in paragraph ";
         let mut ast = markdown::to_mdast(md, &markdown::ParseOptions::gfm()).unwrap();
         dbg!(&ast);
-        make_wiki_links(&mut ast);
+        parse_wiki_links(&mut ast);
         dbg!(&ast);
     }
 }

@@ -1,16 +1,16 @@
 use std::fs::File;
 
 use anyhow::Result;
+use lsp_server::{Connection, Message, Response};
 use lsp_types::{
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
-    GotoDefinitionParams, Hover, HoverParams, HoverProviderCapability, Location, MarkupContent,
-    MarkupKind, OneOf, Position, TextDocumentSyncCapability, TextDocumentSyncKind,
+    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams, HoverProviderCapability,
+    InitializeParams, Location, MarkupContent, MarkupKind, OneOf, Position, ServerCapabilities,
+    TextDocumentSyncCapability, TextDocumentSyncKind,
 };
-use lsp_types::{GotoDefinitionResponse, InitializeParams, ServerCapabilities};
-
-use lsp_server::{Connection, Message, Response};
 use markdown::mdast::Node;
-use md_lsp::ast::{find_link_for_position, make_wiki_links};
+
+use md_lsp::ast::{find_link_for_position, parse_wiki_links};
 use md_lsp::definition::def_handle_link_to_heading;
 use md_lsp::hover::{
     hov_handle_footnote_reference, hov_handle_heading_links, hov_handle_link_reference, State,
@@ -154,7 +154,7 @@ impl Server {
         let Position { line, character } = position_params.position;
         let mut ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm())
             .expect("Couldn't parse md");
-        make_wiki_links(&mut ast);
+        parse_wiki_links(&mut ast);
         let node = find_link_for_position(&ast, line, character);
         log::info!("GOTO FOUND NODE : {:?}", node);
 
@@ -204,7 +204,7 @@ impl Server {
         let Position { line, character } = position_params.position;
         let mut ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm())
             .expect("Couldn't parse md");
-        make_wiki_links(&mut ast);
+        parse_wiki_links(&mut ast);
         let node = find_link_for_position(&ast, line, character);
 
         log::info!("AST : {:?}", ast);

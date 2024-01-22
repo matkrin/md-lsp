@@ -1,4 +1,4 @@
-use markdown::mdast::{self, Node};
+use markdown::mdast::{Definition, FootnoteReference, Heading, Link, LinkReference, Node};
 
 use crate::ast::find_heading_for_url;
 
@@ -6,7 +6,7 @@ pub struct State {
     pub md_buffer: String,
 }
 
-pub fn hov_handle_heading_links(ast: &Node, link: &mdast::Link, state: &State) -> Option<String> {
+pub fn hov_handle_heading_links(ast: &Node, link: &Link, state: &State) -> Option<String> {
     let linked_heading = find_heading_for_url(ast, &link.url);
 
     match linked_heading {
@@ -35,7 +35,7 @@ pub fn hov_handle_heading_links(ast: &Node, link: &mdast::Link, state: &State) -
     }
 }
 
-pub fn hov_handle_link_reference(ast: &Node, link_ref: &mdast::LinkReference) -> Option<String> {
+pub fn hov_handle_link_reference(ast: &Node, link_ref: &LinkReference) -> Option<String> {
     let def = find_def_for_link_ref(ast, link_ref);
 
     def.map(|d| format!("[{}]: {}", d.identifier, d.url))
@@ -43,7 +43,7 @@ pub fn hov_handle_link_reference(ast: &Node, link_ref: &mdast::LinkReference) ->
 
 pub fn hov_handle_footnote_reference(
     ast: &Node,
-    footnote_ref: &mdast::FootnoteReference,
+    footnote_ref: &FootnoteReference,
 ) -> Option<String> {
     let def_node = find_def_for_footnote_ref(ast, footnote_ref);
 
@@ -62,10 +62,7 @@ pub fn hov_handle_footnote_reference(
     }
 }
 
-fn find_def_for_link_ref<'a>(
-    node: &'a Node,
-    link_ref: &mdast::LinkReference,
-) -> Option<&'a mdast::Definition> {
+fn find_def_for_link_ref<'a>(node: &'a Node, link_ref: &LinkReference) -> Option<&'a Definition> {
     if let Node::Definition(def) = node {
         if link_ref.identifier == def.identifier {
             return Some(def);
@@ -83,10 +80,7 @@ fn find_def_for_link_ref<'a>(
     None
 }
 
-fn find_def_for_footnote_ref<'a>(
-    node: &'a Node,
-    foot_ref: &mdast::FootnoteReference,
-) -> Option<&'a Node> {
+fn find_def_for_footnote_ref<'a>(node: &'a Node, foot_ref: &FootnoteReference) -> Option<&'a Node> {
     if let Node::FootnoteDefinition(def) = node {
         if foot_ref.identifier == def.identifier {
             return Some(node);
@@ -126,7 +120,7 @@ fn get_footnote_def_text(node: &Node) -> Option<String> {
     None
 }
 
-fn find_next_heading(node: &Node, end_line: usize, depth: u8) -> Option<&mdast::Heading> {
+fn find_next_heading(node: &Node, end_line: usize, depth: u8) -> Option<&Heading> {
     if let Node::Heading(heading) = node {
         if let Some(pos) = &heading.position {
             if end_line < pos.start.line && depth == heading.depth {

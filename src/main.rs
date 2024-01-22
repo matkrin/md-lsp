@@ -3,8 +3,8 @@ use std::fs::File;
 use anyhow::Result;
 use lsp_types::{
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
-    GotoDefinitionParams, Hover, HoverParams, HoverProviderCapability, MarkupContent, MarkupKind,
-    OneOf, Position, TextDocumentSyncCapability, TextDocumentSyncKind,
+    GotoDefinitionParams, Hover, HoverParams, HoverProviderCapability, Location, MarkupContent,
+    MarkupKind, OneOf, Position, Range, TextDocumentSyncCapability, TextDocumentSyncKind,
 };
 use lsp_types::{GotoDefinitionResponse, InitializeParams, ServerCapabilities};
 
@@ -12,8 +12,8 @@ use lsp_server::{Connection, Message, Response};
 use markdown::mdast::Node;
 use md_lsp::ast::make_wiki_links;
 use md_lsp::hover::{
-    find_def_for_footnote_ref, find_def_for_link_ref, find_link_for_position, handle_heading_links,
-    State, get_footnote_def_text, get_footnote_identifier, handle_footnote_reference,
+    find_def_for_link_ref, find_heading_for_url, find_link_for_position, handle_footnote_reference,
+    handle_heading_links, State,
 };
 
 fn main() -> Result<()> {
@@ -131,7 +131,6 @@ impl Server {
     fn handle_did_change(&self, not: lsp_server::Notification, state: &mut State) -> Result<()> {
         let params: DidChangeTextDocumentParams = serde_json::from_value(not.params)?;
         log::info!("GOT didChange NOT : {:?}", params);
-        // This needs to be changed when partial updating
         let change_event = params.content_changes.iter().last().unwrap();
         state.md_buffer = change_event.text.clone();
 
@@ -151,30 +150,65 @@ impl Server {
         let params: GotoDefinitionParams = serde_json::from_value(req.params)?;
         log::info!("GOT gotoDefinition REQUEST #{}: {:?}", req.id, params);
         let position_params = params.text_document_position_params;
-        let _uri = position_params.text_document.uri;
+        let uri = position_params.text_document.uri;
         let Position { line, character } = position_params.position;
-        let ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm())
+        let mut ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm())
             .expect("Couldn't parse md");
+        make_wiki_links(&mut ast);
         let node = find_link_for_position(&ast, line, character);
+        log::info!("GOTO FOUND NODE : {:?}", node);
 
-        let mut msg = String::new();
-        if let Some(n) = node {
+        let range = if let Some(n) = node {
             match n {
-                Node::Link(link) => {},
-                Node::LinkReference(link_ref) => {},
-                Node::FootnoteReference(foot_ref) => {},
-                _ => {},
+                Node::Link(link) => {
+                    if link.url.starts_with('#') {
+                        let linked_heading = find_heading_for_url(&ast, &link.url);
+                        if let Some(heading) = linked_heading {
+                            heading.position.as_ref().map(|pos| Range {
+                                start: Position {
+                                    line: (pos.start.line - 1) as u32,
+                                    character: (pos.start.column - 1) as u32,
+                                },
+                                end: Position {
+                                    line: (pos.end.line - 1) as u32,
+                                    character: (pos.end.column - 1) as u32,
+                                },
+                            })
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                }
+                Node::LinkReference(link_ref) => {
+                    None
+                }
+                Node::FootnoteReference(foot_ref) => {
+                    None
+                }
+                _ => None,
             }
-        }
+        } else {
+            None
+        };
 
-        let result = Some(GotoDefinitionResponse::Array(Vec::new()));
-        let result = serde_json::to_value(result).unwrap();
+        let result = match range {
+            Some(r) => {
+                let location = Location { uri, range: r };
+                let result = Some(GotoDefinitionResponse::Scalar(location));
+                Some(serde_json::to_value(result)?)
+            }
+            None => None,
+        };
+
         let resp = Response {
             id: req.id,
-            result: Some(result),
+            result,
             error: None,
         };
         self.connection.sender.send(Message::Response(resp))?;
+
         Ok(())
     }
 

@@ -1,6 +1,6 @@
 use markdown::mdast::{Definition, FootnoteReference, Heading, Link, LinkReference, Node};
 
-use crate::ast::find_heading_for_url;
+use crate::{ast::find_heading_for_url, traverse_ast};
 
 pub struct State {
     pub md_buffer: String,
@@ -47,15 +47,7 @@ fn find_def_for_link_ref<'a>(node: &'a Node, link_ref: &LinkReference) -> Option
         }
     }
 
-    // recurse through children
-    if let Some(children) = node.children() {
-        for child in children {
-            if let Some(n) = find_def_for_link_ref(child, link_ref) {
-                return Some(n);
-            }
-        }
-    }
-    None
+    traverse_ast!(node, find_def_for_link_ref, link_ref)
 }
 
 fn find_def_for_footnote_ref<'a>(node: &'a Node, foot_ref: &FootnoteReference) -> Option<&'a Node> {
@@ -65,15 +57,7 @@ fn find_def_for_footnote_ref<'a>(node: &'a Node, foot_ref: &FootnoteReference) -
         }
     }
 
-    // recurse through children
-    if let Some(children) = node.children() {
-        for child in children {
-            if let Some(n) = find_def_for_footnote_ref(child, foot_ref) {
-                return Some(n);
-            }
-        }
-    }
-    None
+    traverse_ast!(node, find_def_for_footnote_ref, foot_ref)
 }
 
 fn get_footnote_identifier(node: &Node) -> Option<String> {
@@ -87,16 +71,19 @@ fn get_footnote_def_text(node: &Node) -> Option<String> {
     if let Node::Text(t) = node {
         return Some(t.value.clone());
     }
-    // recurse through children
-    if let Some(children) = node.children() {
-        for child in children {
-            if let Some(n) = get_footnote_def_text(child) {
-                return Some(n);
-            }
-        }
-    }
-    None
+    // // recurse through children
+    // if let Some(children) = node.children() {
+    //     for child in children {
+    //         if let Some(n) = get_footnote_def_text(child) {
+    //             return Some(n);
+    //         }
+    //     }
+    // }
+    // None
+    // traverse_ast(node, get_footnote_def_text)
+    traverse_ast!(node, get_footnote_def_text)
 }
+
 
 fn find_next_heading(node: &Node, end_line: usize, depth: u8) -> Option<&Heading> {
     if let Node::Heading(heading) = node {
@@ -107,13 +94,5 @@ fn find_next_heading(node: &Node, end_line: usize, depth: u8) -> Option<&Heading
         }
     }
 
-    // recurse through children
-    if let Some(children) = node.children() {
-        for child in children {
-            if let Some(n) = find_next_heading(child, end_line, depth) {
-                return Some(n);
-            }
-        }
-    }
-    None
+    traverse_ast!(node, find_next_heading, end_line, depth)
 }

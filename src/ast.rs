@@ -6,6 +6,23 @@ use markdown::{
 };
 use regex::Regex;
 
+/// Recursive AST traversal
+#[macro_export]
+macro_rules! traverse_ast {
+    ($node: expr, $func: expr $(, $args: expr)*) => {
+        if let Some(children) = $node.children() {
+            for child in children {
+                if let Some(result) = $func(child, $($args),*) {
+                    return Some(result);
+                }
+            }
+            None
+        } else {
+            None
+        }
+    };
+}
+
 struct Extracted {
     content: String,
     start_position: usize,
@@ -120,15 +137,7 @@ pub fn find_link_for_position(node: &Node, line: u32, character: u32) -> Option<
         _ => {}
     };
 
-    // recurse through children
-    if let Some(children) = node.children() {
-        for child in children {
-            if let Some(n) = find_link_for_position(child, line, character) {
-                return Some(n);
-            }
-        }
-    }
-    None
+    traverse_ast!(node, find_link_for_position, line, character)
 }
 
 pub fn find_heading_for_url<'a>(node: &'a Node, link_url: &str) -> Option<&'a Heading> {
@@ -140,15 +149,7 @@ pub fn find_heading_for_url<'a>(node: &'a Node, link_url: &str) -> Option<&'a He
         }
     };
 
-    // recurse through children
-    if let Some(children) = node.children() {
-        for child in children {
-            if let Some(n) = find_heading_for_url(child, link_url) {
-                return Some(n);
-            }
-        }
-    }
-    None
+    traverse_ast!(node, find_heading_for_url, link_url)
 }
 
 pub fn find_definition_for_identifier<'a>(
@@ -161,15 +162,7 @@ pub fn find_definition_for_identifier<'a>(
         }
     }
 
-    // recurse through children
-    if let Some(children) = node.children() {
-        for child in children {
-            if let Some(n) = find_definition_for_identifier(child, identifier) {
-                return Some(n);
-            }
-        }
-    }
-    None
+    traverse_ast!(node, find_definition_for_identifier, identifier)
 }
 
 pub fn find_foot_definition_for_identifier<'a>(
@@ -182,15 +175,7 @@ pub fn find_foot_definition_for_identifier<'a>(
         }
     }
 
-    // recurse through children
-    if let Some(children) = node.children() {
-        for child in children {
-            if let Some(n) = find_foot_definition_for_identifier(child, identifier) {
-                return Some(n);
-            }
-        }
-    }
-    None
+    traverse_ast!(node, find_foot_definition_for_identifier, identifier)
 }
 
 #[cfg(test)]

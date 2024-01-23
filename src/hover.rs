@@ -7,32 +7,21 @@ pub struct State {
 }
 
 pub fn hov_handle_heading_links(ast: &Node, link: &Link, state: &State) -> Option<String> {
-    let linked_heading = find_heading_for_url(ast, &link.url);
+    let linked_heading = find_heading_for_url(ast, &link.url)?;
+    linked_heading.position.as_ref().map(|pos| {
+        let next_heading = find_next_heading(ast, pos.end.line, linked_heading.depth);
+        let start_line = pos.start.line;
+        let end_line = next_heading.and_then(|h| h.position.as_ref().map(|p| p.start.line));
+        let buffer_lines = state.md_buffer.lines().collect::<Vec<_>>();
 
-    match linked_heading {
-        Some(heading) => {
-            let linked_heading_end = heading.position.as_ref().unwrap().end.line;
-            let depth = heading.depth;
-            let next_heading = find_next_heading(ast, linked_heading_end, depth);
-            let start_line = heading.position.as_ref().unwrap().start.line;
-            let end_line = next_heading.map(|h| h.position.as_ref().unwrap().start.line);
-            let buffer_lines = state.md_buffer.lines().collect::<Vec<_>>();
+        let message = if let Some(el) = end_line {
+            buffer_lines[(start_line - 1)..(el - 1)].iter()
+        } else {
+            buffer_lines[(start_line - 1)..].iter()
+        };
 
-            let message = if let Some(el) = end_line {
-                buffer_lines[(start_line - 1)..(el - 1)]
-                    .iter()
-                    .map(|x| x.to_string() + "\n")
-                    .collect::<String>()
-            } else {
-                buffer_lines[(start_line - 1)..]
-                    .iter()
-                    .map(|x| x.to_string() + "\n")
-                    .collect::<String>()
-            };
-            Some(message)
-        }
-        None => None,
-    }
+        message.map(|x| x.to_string() + "\n").collect::<String>()
+    })
 }
 
 pub fn hov_handle_link_reference(ast: &Node, link_ref: &LinkReference) -> Option<String> {
@@ -45,21 +34,10 @@ pub fn hov_handle_footnote_reference(
     ast: &Node,
     footnote_ref: &FootnoteReference,
 ) -> Option<String> {
-    let def_node = find_def_for_footnote_ref(ast, footnote_ref);
-
-    match def_node {
-        Some(dn) => {
-            let footnote_identifier = get_footnote_identifier(dn);
-            let footnote_text = get_footnote_def_text(dn);
-
-            if let (Some(fni), Some(fnt)) = (footnote_identifier, footnote_text) {
-                Some(format!("[^{}]: {}", fni, fnt))
-            } else {
-                None
-            }
-        }
-        None => None,
-    }
+    let def_node = find_def_for_footnote_ref(ast, footnote_ref)?;
+    let footnote_identifier = get_footnote_identifier(def_node)?;
+    let footnote_text = get_footnote_def_text(def_node)?;
+    Some(format!("[^{}]: {}", footnote_identifier, footnote_text))
 }
 
 fn find_def_for_link_ref<'a>(node: &'a Node, link_ref: &LinkReference) -> Option<&'a Definition> {

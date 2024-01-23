@@ -11,7 +11,7 @@ use lsp_types::{
 use markdown::mdast::Node;
 
 use md_lsp::ast::{find_link_for_position, parse_wiki_links};
-use md_lsp::definition::def_handle_link_to_heading;
+use md_lsp::definition::{def_handle_link_ref, def_handle_link_to_heading, def_handle_link_footnote};
 use md_lsp::hover::{
     hov_handle_footnote_reference, hov_handle_heading_links, hov_handle_link_reference, State,
 };
@@ -169,8 +169,12 @@ impl Server {
                             None
                         }
                     }
-                    Node::LinkReference(link_ref) => None,
-                    Node::FootnoteReference(foot_ref) => None,
+                    Node::LinkReference(link_ref) => {
+                        def_handle_link_ref(&ast, &link_ref.identifier)
+                    }
+                    Node::FootnoteReference(foot_ref) => {
+                        def_handle_link_footnote(&ast, &foot_ref.identifier)
+                    }
                     _ => None,
                 }
             }

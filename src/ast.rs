@@ -1,5 +1,7 @@
 use markdown::{
-    mdast::{FootnoteReference, Heading, Link, LinkReference, Node, Text},
+    mdast::{
+        Definition, FootnoteDefinition, FootnoteReference, Heading, Link, LinkReference, Node, Text,
+    },
     unist::{Point, Position},
 };
 use regex::Regex;
@@ -100,26 +102,6 @@ pub fn parse_wiki_links(node: &mut Node) {
     }
 }
 
-pub fn find_heading_for_url<'a>(node: &'a Node, link_url: &str) -> Option<&'a Heading> {
-    if let Node::Heading(heading) = node {
-        if let Some(Node::Text(Text { value, .. })) = heading.children.first() {
-            if value == &link_url.replace('#', "") {
-                return Some(heading);
-            }
-        }
-    };
-
-    // recurse through children
-    if let Some(children) = node.children() {
-        for child in children {
-            if let Some(n) = find_heading_for_url(child, link_url) {
-                return Some(n);
-            }
-        }
-    }
-    None
-}
-
 pub fn find_link_for_position(node: &Node, line: u32, character: u32) -> Option<&Node> {
     match node {
         Node::Link(Link { position, .. })
@@ -142,6 +124,68 @@ pub fn find_link_for_position(node: &Node, line: u32, character: u32) -> Option<
     if let Some(children) = node.children() {
         for child in children {
             if let Some(n) = find_link_for_position(child, line, character) {
+                return Some(n);
+            }
+        }
+    }
+    None
+}
+
+pub fn find_heading_for_url<'a>(node: &'a Node, link_url: &str) -> Option<&'a Heading> {
+    if let Node::Heading(heading) = node {
+        if let Some(Node::Text(Text { value, .. })) = heading.children.first() {
+            if value == &link_url.replace('#', "") {
+                return Some(heading);
+            }
+        }
+    };
+
+    // recurse through children
+    if let Some(children) = node.children() {
+        for child in children {
+            if let Some(n) = find_heading_for_url(child, link_url) {
+                return Some(n);
+            }
+        }
+    }
+    None
+}
+
+pub fn find_definition_for_identifier<'a>(
+    node: &'a Node,
+    identifier: &str,
+) -> Option<&'a Definition> {
+    if let Node::Definition(def) = node {
+        if def.identifier == identifier {
+            return Some(def);
+        }
+    }
+
+    // recurse through children
+    if let Some(children) = node.children() {
+        for child in children {
+            if let Some(n) = find_definition_for_identifier(child, identifier) {
+                return Some(n);
+            }
+        }
+    }
+    None
+}
+
+pub fn find_foot_definition_for_identifier<'a>(
+    node: &'a Node,
+    identifier: &str,
+) -> Option<&'a FootnoteDefinition> {
+    if let Node::FootnoteDefinition(def) = node {
+        if def.identifier == identifier {
+            return Some(def);
+        }
+    }
+
+    // recurse through children
+    if let Some(children) = node.children() {
+        for child in children {
+            if let Some(n) = find_foot_definition_for_identifier(child, identifier) {
                 return Some(n);
             }
         }

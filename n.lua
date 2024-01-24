@@ -1,7 +1,11 @@
-local id = vim.lsp.start_client({
+local config = {
     name = "md-lsp",
     cmd = {"./target/debug/md-lsp"},
-})
+    root_dir = vim.loop.cwd(),
+}
+
+
+local id = vim.lsp.start_client(config)
 
 local bufnr = vim.api.nvim_get_current_buf()
 

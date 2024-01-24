@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.79"
+ignore = "0.4.22"
 log = "0.4.20"
 lsp-server = "0.7.6"
 lsp-types = "0.95.0"

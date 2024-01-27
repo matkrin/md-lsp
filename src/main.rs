@@ -162,36 +162,31 @@ impl Server {
         let params: GotoDefinitionParams = serde_json::from_value(req.params)?;
         log::info!("GOT gotoDefinition REQUEST #{}: {:?}", req.id, params);
         let position_params = params.text_document_position_params;
-        let uri = position_params.text_document.uri;
+        let req_uri = position_params.text_document.uri;
         let Position { line, character } = position_params.position;
-        let ast = state.ast_for_uri(&uri).unwrap();
-        let node = find_link_for_position(ast, line, character);
+        let req_ast = state.ast_for_uri(&req_uri).unwrap();
+        let node = find_link_for_position(req_ast, line, character);
         log::info!("GOTO FOUND NODE : {:?}", node);
 
-        let range = match node {
+        let (target_uri, range) = match node {
             Some(n) => {
                 match n {
                     Node::Link(link) => {
-                        if link.url.starts_with('#') {
-                            def_handle_link_to_heading(ast, &link.url)
-                        } else {
-                            // when workspace -> link to other file
-                            None
-                        }
+                            def_handle_link_to_heading(&req_uri, link, state)
                     }
-                    Node::LinkReference(link_ref) => def_handle_link_ref(ast, &link_ref.identifier),
+                    Node::LinkReference(link_ref) => (req_uri.clone(), def_handle_link_ref(req_ast, &link_ref.identifier)),
                     Node::FootnoteReference(foot_ref) => {
-                        def_handle_link_footnote(ast, &foot_ref.identifier)
+                        (req_uri.clone(), def_handle_link_footnote(req_ast, &foot_ref.identifier))
                     }
-                    _ => None,
+                    _ => (req_uri.clone(), None),
                 }
             }
-            None => None,
+            None => (req_uri.clone(), None),
         };
 
         let result = match range {
             Some(r) => {
-                let location = Location { uri, range: r };
+                let location = Location { uri: target_uri, range: r };
                 let result = Some(GotoDefinitionResponse::Scalar(location));
                 serde_json::to_value(result).ok()
             }

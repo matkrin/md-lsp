@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use lsp_types::{Url, WorkspaceFolder};
+use lsp_types::Url;
 use markdown::{
     mdast::{Link, Node, Text},
     unist::{Point, Position},

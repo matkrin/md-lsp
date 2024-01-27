@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use lsp_types::{Url, WorkspaceFolder};
 use markdown::{
     mdast::{Link, Node, Text},
@@ -11,45 +13,39 @@ pub struct ResolvedLink<'a> {
     pub uri: Url,
 }
 
+impl<'a> ResolvedLink<'a> {
+    fn new(heading: Option<&'a str>, uri: Url) -> Self {
+        Self { heading, uri }
+    }
+
+    fn from_request(
+        root_path: PathBuf,
+        linked_file: &'a str,
+        heading_text: Option<&'a str>,
+    ) -> Option<ResolvedLink<'a>> {
+        let file = if linked_file.ends_with(".md") {
+            linked_file.to_string()
+        } else {
+            format!("{}.md", linked_file)
+        };
+        let full_path = root_path.join(file);
+        Url::from_file_path(full_path)
+            .ok()
+            .map(|u| ResolvedLink::new(heading_text, u))
+    }
+}
+
 pub fn resolve_link<'a>(
     link: &'a Link,
     workspace_folder: &WorkspaceFolder,
 ) -> Option<ResolvedLink<'a>> {
+    let root_path = workspace_folder.uri.to_file_path().ok()?;
     match link.url.split_once('#') {
         Some(("", _)) => None,
         Some((file, heading_text)) => {
-            let file = if file.ends_with(".md") {
-                file.to_string()
-            } else {
-                format!("{}.md", file)
-            };
-            let root = workspace_folder.uri.to_file_path().ok()?;
-            let full_path = root.join(file);
-            match Url::from_file_path(full_path) {
-                Ok(u) => Some(ResolvedLink {
-                    heading: Some(heading_text),
-                    uri: u,
-                }),
-                Err(_) => None,
-            }
+            ResolvedLink::from_request(root_path, file, Some(heading_text))
         }
-        None => {
-        log::info!("SPLIT_ONCE + NONE");
-        let file = if link.url.ends_with(".md") {
-                link.url.to_string()
-            } else {
-                format!("{}.md", link.url)
-            };
-        let root = workspace_folder.uri.to_file_path().ok()?;
-        let full_path = root.join(file);
-        match Url::from_file_path(full_path) {
-            Ok(u) => Some(ResolvedLink {
-                heading: None,
-                uri: u,
-            }),
-            Err(_) => None,
-            }
-        },
+        None => ResolvedLink::from_request(root_path, &link.url, None),
     }
 }
 

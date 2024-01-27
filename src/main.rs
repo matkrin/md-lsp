@@ -14,7 +14,7 @@ use md_lsp::ast::find_link_for_position;
 use md_lsp::definition::{
     def_handle_link_footnote, def_handle_link_ref, def_handle_link_to_heading,
 };
-use md_lsp::hover::{hov_handle_footnote_reference, hov_handle_link_reference, hov_handle_heading_links, hov_handle_link_other_file};
+use md_lsp::hover::{hov_handle_footnote_reference, hov_handle_link, hov_handle_link_reference};
 use md_lsp::state::State;
 
 fn main() -> Result<()> {
@@ -179,9 +179,7 @@ impl Server {
                             None
                         }
                     }
-                    Node::LinkReference(link_ref) => {
-                        def_handle_link_ref(ast, &link_ref.identifier)
-                    }
+                    Node::LinkReference(link_ref) => def_handle_link_ref(ast, &link_ref.identifier),
                     Node::FootnoteReference(foot_ref) => {
                         def_handle_link_footnote(ast, &foot_ref.identifier)
                     }
@@ -234,24 +232,14 @@ impl Server {
         }
 
         let message = match node {
-            Some(n) => {
-                match n {
-                    Node::Link(link) => {
-                        if link.url.contains('#') {
-                            // link to heading
-                            hov_handle_heading_links(req_ast, &req_uri, link, state)
-                        } else {
-                            // when workspace -> link to other file
-                            hov_handle_link_other_file(&req_uri, link, state)
-                        }
-                    }
-                    Node::LinkReference(link_ref) => hov_handle_link_reference(req_ast, link_ref),
-                    Node::FootnoteReference(foot_ref) => {
-                        hov_handle_footnote_reference(req_ast, foot_ref)
-                    }
-                    _ => None,
+            Some(n) => match n {
+                Node::Link(link) => hov_handle_link(&req_uri, link, state),
+                Node::LinkReference(link_ref) => hov_handle_link_reference(req_ast, link_ref),
+                Node::FootnoteReference(foot_ref) => {
+                    hov_handle_footnote_reference(req_ast, foot_ref)
                 }
-            }
+                _ => None,
+            },
             None => None,
         };
 

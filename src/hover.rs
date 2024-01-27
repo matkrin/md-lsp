@@ -1,15 +1,37 @@
+use lsp_types::Url;
 use markdown::mdast::{Definition, FootnoteReference, Heading, Link, LinkReference, Node};
 
-use crate::{ast::find_heading_for_url, state::State, traverse_ast};
+use crate::{ast::find_heading_for_url, state::State, traverse_ast, links::resolve_link};
 
-pub fn hov_handle_heading_links(ast: &Node, link: &Link, state: &State) -> Option<String> {
-    let linked_heading = find_heading_for_url(ast, &link.url)?;
+fn get_target_uri<'a>(req_uri: &Url, link: &'a Link, state: &'a State) -> (Url, Option<&'a str>) {
+    match &state.workspace_folder() {
+        Some(wsf) => {
+            match resolve_link(link, wsf) {
+                Some(rl) => {
+                    log::info!("RESOLVEDD LINK  : {:?}", rl);
+                    (rl.uri, rl.heading)
+                },
+                None => (req_uri.clone(), Some(&link.url)),
+            }
+        }
+        _ => (req_uri.clone(), Some(&link.url)),
+    }
+}
+
+pub fn hov_handle_heading_links(req_ast: &Node, req_uri: &Url, link: &Link, state: &State) -> Option<String> {
+    let (target_uri, heading_text) = get_target_uri(req_uri, link, state);
+    let heading_text = heading_text?;
+
+    let target_ast = state.ast_for_uri(&target_uri).unwrap();
+    let target_buffer = state.buffer_for_uri(&target_uri).unwrap();
+
+
+    let linked_heading = find_heading_for_url(target_ast, heading_text)?;
     linked_heading.position.as_ref().map(|pos| {
-        let next_heading = find_next_heading(ast, pos.end.line, linked_heading.depth);
+        let next_heading = find_next_heading(target_ast, pos.end.line, linked_heading.depth);
         let start_line = pos.start.line;
         let end_line = next_heading.and_then(|h| h.position.as_ref().map(|p| p.start.line));
-        let buffer = "";
-        let buffer_lines = buffer.lines().collect::<Vec<_>>();
+        let buffer_lines = target_buffer.lines().collect::<Vec<_>>();
         // let buffer_lines = state.md_buffer.lines().collect::<Vec<_>>();
 
         let message = if let Some(el) = end_line {
@@ -20,6 +42,11 @@ pub fn hov_handle_heading_links(ast: &Node, link: &Link, state: &State) -> Optio
 
         message.map(|x| x.to_string() + "\n").collect::<String>()
     })
+}
+
+pub fn hov_handle_link_other_file(req_uri: &Url, link: &Link, state: &State) -> Option<String> {
+    let (target_uri, _) = get_target_uri(req_uri, link, state);
+    state.buffer_for_uri(&target_uri).map(ToString::to_string)
 }
 
 pub fn hov_handle_link_reference(ast: &Node, link_ref: &LinkReference) -> Option<String> {

@@ -4,7 +4,7 @@ use ignore::Walk;
 use lsp_types::{Url, WorkspaceFolder};
 use markdown::mdast::Node;
 
-use crate::ast::parse_wiki_links;
+use crate::links::parse_wiki_links;
 
 #[derive(Debug)]
 struct MdFile {
@@ -15,11 +15,20 @@ struct MdFile {
 #[derive(Debug, Default)]
 pub struct State {
     md_files: HashMap<Url, MdFile>,
+    pub workspace_folder: Option<WorkspaceFolder>,
 }
 
 impl State {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn workspace_folder(&self) -> Option<&WorkspaceFolder> {
+        self.workspace_folder.as_ref()
+    }
+
+    pub fn set_workspace_folder(&mut self, workspace_folder: WorkspaceFolder) {
+        self.workspace_folder = Some(workspace_folder);
     }
 
     pub fn set_buffer(&mut self, uri: &Url, buffer: String) {

@@ -1,10 +1,6 @@
-use markdown::{
-    mdast::{
-        Definition, FootnoteDefinition, FootnoteReference, Heading, Link, LinkReference, Node, Text,
-    },
-    unist::{Point, Position},
+use markdown::mdast::{
+    Definition, FootnoteDefinition, FootnoteReference, Heading, Link, LinkReference, Node, Text,
 };
-use regex::Regex;
 
 /// Recursive AST traversal
 #[macro_export]
@@ -21,102 +17,6 @@ macro_rules! traverse_ast {
             None
         }
     };
-}
-
-struct Extracted {
-    content: String,
-    start_position: usize,
-    line_number: usize,
-}
-
-impl Extracted {
-    fn link_text_node(&self, start_line: usize) -> Node {
-        let link_text = Text {
-            value: self.content.clone(),
-            position: Some(Position {
-                start: Point {
-                    line: start_line + self.line_number,
-                    column: self.start_position,
-                    offset: self.start_position,
-                },
-                end: Point {
-                    line: start_line + self.line_number,
-                    column: self.start_position + self.content.len(),
-                    offset: self.start_position + self.content.len(),
-                },
-            }),
-        };
-        Node::Text(link_text)
-    }
-
-    fn link_node(&self, start_line: usize) -> Node {
-        let link_text_node = self.link_text_node(start_line);
-
-        let link = Link {
-            children: vec![link_text_node],
-            position: Some(Position {
-                start: Point {
-                    line: start_line + self.line_number,
-                    column: self.start_position - 2,
-                    offset: self.start_position - 2,
-                },
-                end: Point {
-                    line: start_line + self.line_number,
-                    column: self.start_position + self.content.len() + 2,
-                    offset: self.start_position + self.content.len() + 2,
-                },
-            }),
-            url: self.content.clone(),
-            title: Some(self.content.clone()),
-        };
-        Node::Link(link)
-    }
-}
-
-fn extract_links(input: &str) -> Vec<Extracted> {
-    let re = Regex::new(r"\[\[([\s\S]*?)\]\]").unwrap();
-
-    input
-        .lines()
-        .enumerate()
-        .flat_map(|(line_number, line)| {
-            re.captures_iter(line).filter_map(move |captures| {
-                captures.get(1).map(|content| Extracted {
-                    content: content.as_str().to_string(),
-                    start_position: content.start() + 1,
-                    line_number,
-                })
-            })
-        })
-        .collect()
-}
-
-pub fn parse_wiki_links(node: &mut Node) {
-    let mut links = Vec::new();
-    if let Some(children) = node.children() {
-        for child in children {
-            if let Node::Text(t) = child {
-                if t.value.contains("[[") && t.value.contains("]]") {
-                    let t_position = t.position.as_ref().unwrap().clone();
-                    let extracted = extract_links(&t.value);
-
-                    for i in extracted {
-                        let link_ast = i.link_node(t_position.start.line);
-                        links.push(link_ast);
-                    }
-                }
-            }
-        }
-    }
-    if let Some(children) = node.children_mut() {
-        children.append(&mut links);
-    }
-    // recurse through children
-    if let Some(children) = node.children_mut() {
-        for child in children {
-            parse_wiki_links(child);
-        }
-    }
 }
 
 pub fn find_link_for_position(node: &Node, line: u32, character: u32) -> Option<&Node> {
@@ -178,26 +78,3 @@ pub fn find_foot_definition_for_identifier<'a>(
     traverse_ast!(node, find_foot_definition_for_identifier, identifier)
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_make_wiki_links() {
-        let md = "Wikilink [[link]] in paragraph";
-        let mut ast = markdown::to_mdast(md, &markdown::ParseOptions::gfm()).unwrap();
-        // dbg!(&ast);
-        parse_wiki_links(&mut ast);
-        // dbg!(&ast);
-    }
-
-    #[test]
-    fn test_make_wiki_links2() {
-        let md = "Another line with [[link1]]
-Wikilink [[link]] in paragraph ";
-        let mut ast = markdown::to_mdast(md, &markdown::ParseOptions::gfm()).unwrap();
-        dbg!(&ast);
-        parse_wiki_links(&mut ast);
-        dbg!(&ast);
-    }
-}

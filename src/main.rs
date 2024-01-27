@@ -14,7 +14,7 @@ use md_lsp::ast::find_link_for_position;
 use md_lsp::definition::{
     def_handle_link_footnote, def_handle_link_ref, def_handle_link_to_heading,
 };
-use md_lsp::hover::{hov_handle_footnote_reference, hov_handle_link_reference};
+use md_lsp::hover::{hov_handle_footnote_reference, hov_handle_link_reference, hov_handle_heading_links, hov_handle_link_other_file};
 use md_lsp::state::State;
 
 fn main() -> Result<()> {
@@ -69,6 +69,7 @@ fn main_loop(connection: Connection, params: serde_json::Value) -> Result<()> {
 
     if let Some(wsf) = work_space_folders {
         state.index_md_files(&wsf);
+        state.set_workspace_folder(wsf[0].clone());
     }
 
     let server = Server { connection };
@@ -213,13 +214,13 @@ impl Server {
     fn handle_hover(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
         let params: HoverParams = serde_json::from_value(req.params)?;
         let position_params = params.text_document_position_params;
-        let uri = position_params.text_document.uri;
+        let req_uri = position_params.text_document.uri;
         let Position { line, character } = position_params.position;
 
-        let ast = state.ast_for_uri(&uri).unwrap();
-        let node = find_link_for_position(ast, line, character);
+        let req_ast = state.ast_for_uri(&req_uri).unwrap();
+        let node = find_link_for_position(req_ast, line, character);
 
-        log::info!("AST : {:?}", ast);
+        log::info!("AST : {:?}", req_ast);
         log::info!("POSITION LINE: {}, CHARACTER: {}", line, character);
         log::info!("FOUND NODE : {:?}", node);
 
@@ -236,18 +237,17 @@ impl Server {
             Some(n) => {
                 match n {
                     Node::Link(link) => {
-                        if link.url.starts_with('#') {
+                        if link.url.contains('#') {
                             // link to heading
-                            //hov_handle_heading_links(&ast, link, state)
-                            Some("".to_string())
+                            hov_handle_heading_links(req_ast, &req_uri, link, state)
                         } else {
                             // when workspace -> link to other file
-                            Some(link.url.clone())
+                            hov_handle_link_other_file(&req_uri, link, state)
                         }
                     }
-                    Node::LinkReference(link_ref) => hov_handle_link_reference(ast, link_ref),
+                    Node::LinkReference(link_ref) => hov_handle_link_reference(req_ast, link_ref),
                     Node::FootnoteReference(foot_ref) => {
-                        hov_handle_footnote_reference(ast, foot_ref)
+                        hov_handle_footnote_reference(req_ast, foot_ref)
                     }
                     _ => None,
                 }

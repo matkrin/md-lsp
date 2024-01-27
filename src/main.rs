@@ -55,12 +55,15 @@ fn main_loop(connection: Connection, params: serde_json::Value) -> Result<()> {
 
     // else is single file mode, I guess
     let mut state = State::new();
+    let server = Server::new(connection);
 
     if let Some(wsf) = work_space_folders {
         state.index_md_files(&wsf);
         state.set_workspace_folder(wsf[0].clone());
+        for uri in state.md_files.keys() {
+            server.handle_diagnostic(uri, &state)?;
+        }
     }
 
-    let server = Server { connection };
     server.run(state)
 }

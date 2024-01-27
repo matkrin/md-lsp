@@ -37,7 +37,7 @@ pub fn def_handle_link_footnote(req_ast: &Node, identifier: &str) -> Option<Rang
 }
 
 /// Takes `Position` from `markdown::unist`, `Position` in the returned `Range` from `lsp_types`
-fn range_from_position(position: &unist::Position) -> Range {
+pub fn range_from_position(position: &unist::Position) -> Range {
     Range {
         start: Position {
             line: (position.start.line - 1) as u32,

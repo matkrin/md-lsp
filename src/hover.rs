@@ -1,10 +1,6 @@
 use markdown::mdast::{Definition, FootnoteReference, Heading, Link, LinkReference, Node};
 
-use crate::{ast::find_heading_for_url, traverse_ast};
-
-pub struct State {
-    pub md_buffer: String,
-}
+use crate::{ast::find_heading_for_url, state::State, traverse_ast};
 
 pub fn hov_handle_heading_links(ast: &Node, link: &Link, state: &State) -> Option<String> {
     let linked_heading = find_heading_for_url(ast, &link.url)?;
@@ -12,7 +8,9 @@ pub fn hov_handle_heading_links(ast: &Node, link: &Link, state: &State) -> Optio
         let next_heading = find_next_heading(ast, pos.end.line, linked_heading.depth);
         let start_line = pos.start.line;
         let end_line = next_heading.and_then(|h| h.position.as_ref().map(|p| p.start.line));
-        let buffer_lines = state.md_buffer.lines().collect::<Vec<_>>();
+        let buffer = "";
+        let buffer_lines = buffer.lines().collect::<Vec<_>>();
+        // let buffer_lines = state.md_buffer.lines().collect::<Vec<_>>();
 
         let message = if let Some(el) = end_line {
             buffer_lines[(start_line - 1)..(el - 1)].iter()
@@ -83,7 +81,6 @@ fn get_footnote_def_text(node: &Node) -> Option<String> {
     // traverse_ast(node, get_footnote_def_text)
     traverse_ast!(node, get_footnote_def_text)
 }
-
 
 fn find_next_heading(node: &Node, end_line: usize, depth: u8) -> Option<&Heading> {
     if let Node::Heading(heading) = node {

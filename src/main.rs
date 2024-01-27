@@ -1,24 +1,21 @@
 use std::fs::File;
-use std::path::PathBuf;
 
 use anyhow::Result;
-use ignore::Walk;
 use lsp_server::{Connection, Message, Response};
 use lsp_types::{
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
     GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams, HoverProviderCapability,
     InitializeParams, Location, MarkupContent, MarkupKind, OneOf, Position, ServerCapabilities,
-    TextDocumentSyncCapability, TextDocumentSyncKind, WorkspaceFolder,
+    TextDocumentSyncCapability, TextDocumentSyncKind,
 };
 use markdown::mdast::Node;
 
-use md_lsp::ast::{find_link_for_position, parse_wiki_links};
+use md_lsp::ast::find_link_for_position;
 use md_lsp::definition::{
     def_handle_link_footnote, def_handle_link_ref, def_handle_link_to_heading,
 };
-use md_lsp::hover::{
-    hov_handle_footnote_reference, hov_handle_heading_links, hov_handle_link_reference, State,
-};
+use md_lsp::hover::{hov_handle_footnote_reference, hov_handle_link_reference};
+use md_lsp::state::State;
 
 fn main() -> Result<()> {
     // Note that  we must have our logging only write out to stderr.
@@ -67,15 +64,14 @@ fn main_loop(connection: Connection, params: serde_json::Value) -> Result<()> {
     let work_space_folders = _params.workspace_folders;
     log::info!("starting example main loop");
 
-    let state = State {
-        md_buffer: "".to_string(),
-    };
+    // else is single file mode, I guess
+    let mut state = State::new();
+
+    if let Some(wsf) = work_space_folders {
+        state.index_md_files(&wsf);
+    }
 
     let server = Server { connection };
-    if let Some(wsf) = work_space_folders {
-        let a = server.index_md_files(&wsf);
-        log::info!("INDEXING: {:?}", a);
-    }
     server.run(state)
 }
 
@@ -95,9 +91,9 @@ impl Server {
                     log::info!("GOT REQUEST: {req:?}");
                     match req.method.as_ref() {
                         "textDocument/definition" => {
-                            self.handle_defintion(req, &state)?;
+                            self.handle_defintion(req, &mut state)?;
                         }
-                        "textDocument/hover" => self.handle_hover(req, &state)?,
+                        "textDocument/hover" => self.handle_hover(req, &mut state)?,
                         _ => {
                             log::info!("OTHER REQUEST: {:?}", req);
                         }
@@ -131,8 +127,10 @@ impl Server {
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_didOpen
     fn handle_did_open(&self, not: lsp_server::Notification, state: &mut State) -> Result<()> {
         let params: DidOpenTextDocumentParams = serde_json::from_value(not.params)?;
+        let uri = params.text_document.uri;
+        state.set_buffer(&uri, params.text_document.text);
         // log::info!("GOT didOpen NOTIFICATION : {:?}", params);
-        state.md_buffer = params.text_document.text;
+        // state.md_buffer = params.text_document.text;
         // let _ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm());
 
         Ok(())
@@ -141,9 +139,11 @@ impl Server {
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_didChange
     fn handle_did_change(&self, not: lsp_server::Notification, state: &mut State) -> Result<()> {
         let params: DidChangeTextDocumentParams = serde_json::from_value(not.params)?;
-        log::info!("GOT didChange NOT : {:?}", params);
-        let change_event = params.content_changes.iter().last().unwrap();
-        state.md_buffer = change_event.text.clone();
+        // log::info!("GOT didChange NOT : {:?}", params);
+        let change_event = params.content_changes.into_iter().last().unwrap();
+        // state.md_buffer = change_event.text.clone();
+        let uri = params.text_document.uri;
+        state.set_buffer(&uri, change_event.text);
 
         Ok(())
     }
@@ -157,16 +157,14 @@ impl Server {
     }
 
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition
-    fn handle_defintion(&self, req: lsp_server::Request, state: &State) -> Result<()> {
+    fn handle_defintion(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
         let params: GotoDefinitionParams = serde_json::from_value(req.params)?;
         log::info!("GOT gotoDefinition REQUEST #{}: {:?}", req.id, params);
         let position_params = params.text_document_position_params;
         let uri = position_params.text_document.uri;
         let Position { line, character } = position_params.position;
-        let mut ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm())
-            .expect("Couldn't parse md");
-        parse_wiki_links(&mut ast);
-        let node = find_link_for_position(&ast, line, character);
+        let ast = state.ast_for_uri(&uri).unwrap();
+        let node = find_link_for_position(ast, line, character);
         log::info!("GOTO FOUND NODE : {:?}", node);
 
         let range = match node {
@@ -174,17 +172,17 @@ impl Server {
                 match n {
                     Node::Link(link) => {
                         if link.url.starts_with('#') {
-                            def_handle_link_to_heading(&ast, &link.url)
+                            def_handle_link_to_heading(ast, &link.url)
                         } else {
                             // when workspace -> link to other file
                             None
                         }
                     }
                     Node::LinkReference(link_ref) => {
-                        def_handle_link_ref(&ast, &link_ref.identifier)
+                        def_handle_link_ref(ast, &link_ref.identifier)
                     }
                     Node::FootnoteReference(foot_ref) => {
-                        def_handle_link_footnote(&ast, &foot_ref.identifier)
+                        def_handle_link_footnote(ast, &foot_ref.identifier)
                     }
                     _ => None,
                 }
@@ -212,15 +210,14 @@ impl Server {
     }
 
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_hover
-    fn handle_hover(&self, req: lsp_server::Request, state: &State) -> Result<()> {
+    fn handle_hover(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
         let params: HoverParams = serde_json::from_value(req.params)?;
         let position_params = params.text_document_position_params;
-        let _uri = position_params.text_document.uri;
+        let uri = position_params.text_document.uri;
         let Position { line, character } = position_params.position;
-        let mut ast = markdown::to_mdast(&state.md_buffer, &markdown::ParseOptions::gfm())
-            .expect("Couldn't parse md");
-        parse_wiki_links(&mut ast);
-        let node = find_link_for_position(&ast, line, character);
+
+        let ast = state.ast_for_uri(&uri).unwrap();
+        let node = find_link_for_position(ast, line, character);
 
         log::info!("AST : {:?}", ast);
         log::info!("POSITION LINE: {}, CHARACTER: {}", line, character);
@@ -241,15 +238,16 @@ impl Server {
                     Node::Link(link) => {
                         if link.url.starts_with('#') {
                             // link to heading
-                            hov_handle_heading_links(&ast, link, state)
+                            //hov_handle_heading_links(&ast, link, state)
+                            Some("".to_string())
                         } else {
                             // when workspace -> link to other file
                             Some(link.url.clone())
                         }
                     }
-                    Node::LinkReference(link_ref) => hov_handle_link_reference(&ast, link_ref),
+                    Node::LinkReference(link_ref) => hov_handle_link_reference(ast, link_ref),
                     Node::FootnoteReference(foot_ref) => {
-                        hov_handle_footnote_reference(&ast, foot_ref)
+                        hov_handle_footnote_reference(ast, foot_ref)
                     }
                     _ => None,
                 }
@@ -279,20 +277,5 @@ impl Server {
         self.connection.sender.send(Message::Response(response))?;
 
         Ok(())
-    }
-
-    fn index_md_files(&self, workspace_folders: &[WorkspaceFolder]) -> Vec<PathBuf> {
-        let mut md_files = Vec::new();
-        for folder in workspace_folders {
-            if let Ok(f) = folder.uri.to_file_path() {
-                for entry in Walk::new(f).flatten() {
-                    let path = entry.into_path();
-                    if path.extension().is_some_and(|ext| ext == "md") {
-                        md_files.push(path)
-                    }
-                }
-            }
-        }
-        md_files
     }
 }

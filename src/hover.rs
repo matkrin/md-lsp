@@ -5,7 +5,7 @@ use crate::{ast::find_heading_for_url, links::resolve_link, state::State, traver
 
 fn get_target_uri<'a>(req_uri: &Url, link: &'a Link, state: &'a State) -> (Url, Option<&'a str>) {
     match &state.workspace_folder() {
-        Some(wsf) => match resolve_link(link, wsf) {
+        Some(_) => match resolve_link(link, state) {
             Some(rl) => {
                 log::info!("RESOLVEDD LINK  : {:?}", rl);
                 (rl.uri, rl.heading)

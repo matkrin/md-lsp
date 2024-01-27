@@ -7,14 +7,14 @@ use markdown::mdast::Node;
 use crate::links::parse_wiki_links;
 
 #[derive(Debug)]
-struct MdFile {
+pub struct MdFile {
     buffer: String,
     ast: Node,
 }
 
 #[derive(Debug, Default)]
 pub struct State {
-    md_files: HashMap<Url, MdFile>,
+    pub md_files: HashMap<Url, MdFile>,
     pub workspace_folder: Option<WorkspaceFolder>,
 }
 

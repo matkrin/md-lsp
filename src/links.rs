@@ -7,6 +7,8 @@ use markdown::{
 };
 use regex::Regex;
 
+use crate::state::State;
+
 #[derive(Debug)]
 pub struct ResolvedLink<'a> {
     pub heading: Option<&'a str>,
@@ -18,34 +20,49 @@ impl<'a> ResolvedLink<'a> {
         Self { heading, uri }
     }
 
-    fn from_request(
-        root_path: PathBuf,
+    // fn from_request(
+    //     root_path: PathBuf,
+    //     linked_file: &'a str,
+    //     heading_text: Option<&'a str>,
+    // ) -> Option<ResolvedLink<'a>> {
+    //     let file = if linked_file.ends_with(".md") {
+    //         linked_file.to_string()
+    //     } else {
+    //         format!("{}.md", linked_file)
+    //     };
+    //     let full_path = root_path.join(file);
+    //     Url::from_file_path(full_path)
+    //         .ok()
+    //         .map(|u| ResolvedLink::new(heading_text, u))
+    // }
+
+    pub fn from_state(
         linked_file: &'a str,
         heading_text: Option<&'a str>,
+        state: &State,
     ) -> Option<ResolvedLink<'a>> {
+        log::info!("LINKED FILE  : {}", linked_file);
         let file = if linked_file.ends_with(".md") {
-            linked_file.to_string()
+            PathBuf::from(linked_file)
         } else {
-            format!("{}.md", linked_file)
+            PathBuf::from(format!("{}.md", linked_file))
         };
-        let full_path = root_path.join(file);
-        Url::from_file_path(full_path)
-            .ok()
-            .map(|u| ResolvedLink::new(heading_text, u))
+        for url in state.md_files.keys() {
+            if url.to_file_path().unwrap().file_name().unwrap() == file.file_name().unwrap() {
+                return Some(ResolvedLink::new(heading_text, url.clone()));
+            }
+        }
+        None
     }
 }
 
-pub fn resolve_link<'a>(
-    link: &'a Link,
-    workspace_folder: &WorkspaceFolder,
-) -> Option<ResolvedLink<'a>> {
-    let root_path = workspace_folder.uri.to_file_path().ok()?;
+pub fn resolve_link<'a>(link: &'a Link, state: &State) -> Option<ResolvedLink<'a>> {
     match link.url.split_once('#') {
         Some(("", _)) => None,
-        Some((file, heading_text)) => {
-            ResolvedLink::from_request(root_path, file, Some(heading_text))
-        }
-        None => ResolvedLink::from_request(root_path, &link.url, None),
+        // link with referece to heading `...#...`
+        Some((file, heading_text)) => ResolvedLink::from_state(file, Some(heading_text), state),
+        // link without referece to heading
+        None => ResolvedLink::from_state(&link.url, None, state),
     }
 }
 

@@ -95,15 +95,13 @@ impl Server {
         let ast = state.ast_for_uri(uri).unwrap();
         // for link, reflink, footnote check if their definitions exist
         let diagnostics = check_links(ast, uri, state).into_iter().map(|x| {
-            let range = x.0;
-            let message = x.1;
                 Diagnostic {
-                    range,
+                    range: x.range,
                     severity: Some(DiagnosticSeverity::ERROR),
                     code: None,
                     code_description: None,
                     source: Some("md-lsp".to_string()),
-                    message,
+                    message: x.message,
                     related_information: None, // might be interesting
                     tags: None,
                     data: None,

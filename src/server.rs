@@ -1,9 +1,9 @@
 use anyhow::Result;
 use lsp_server::{Connection, Message, Notification, Response};
 use lsp_types::{
-    Diagnostic, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
-    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams, Location, MarkupContent,
-    MarkupKind, Position, PublishDiagnosticsParams, Url, DiagnosticSeverity,
+    Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
+    DidOpenTextDocumentParams, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams,
+    Location, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams, Url,
 };
 use markdown::mdast::Node;
 
@@ -21,7 +21,7 @@ pub struct Server {
 
 impl Server {
     pub fn new(connection: Connection) -> Self {
-        Self {connection}
+        Self { connection }
     }
 
     pub fn run(&self, mut state: State) -> Result<()> {
@@ -94,33 +94,35 @@ impl Server {
     pub fn handle_diagnostic(&self, uri: &Url, state: &State) -> Result<()> {
         let ast = state.ast_for_uri(uri).unwrap();
         // for link, reflink, footnote check if their definitions exist
-        if let Some((range, message)) = check_links(ast, state) {
-            let diagnostics = Diagnostic {
-                range,
-                severity: Some(DiagnosticSeverity::ERROR),
-                code: None,
-                code_description: None,
-                source: Some("md-lsp".to_string()),
-                message,
-                related_information: None, // might be interesting
-                tags: None,
-                data: None,
-            };
+        let diagnostics = check_links(ast, uri, state).into_iter().map(|x| {
+            let range = x.0;
+            let message = x.1;
+                Diagnostic {
+                    range,
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: None,
+                    code_description: None,
+                    source: Some("md-lsp".to_string()),
+                    message,
+                    related_information: None, // might be interesting
+                    tags: None,
+                    data: None,
+                }
+        }).collect::<Vec<_>>();
 
-            let diagnostic_params = PublishDiagnosticsParams {
-                uri: uri.clone(),
-                diagnostics: vec![diagnostics],
-                version: None,
-            };
-
-            let diagnostic_params = serde_json::to_value(diagnostic_params).unwrap();
-
-            let resp = Notification {
-                method: "textDocument/publishDiagnostics".to_string(),
-                params: diagnostic_params,
-            };
-            self.connection.sender.send(Message::Notification(resp))?;
+        let diagnostic_params = PublishDiagnosticsParams {
+            uri: uri.clone(),
+            diagnostics,
+            version: None,
         };
+
+        let diagnostic_params = serde_json::to_value(diagnostic_params).unwrap();
+
+        let resp = Notification {
+            method: "textDocument/publishDiagnostics".to_string(),
+            params: diagnostic_params,
+        };
+        self.connection.sender.send(Message::Notification(resp))?;
         Ok(())
     }
 

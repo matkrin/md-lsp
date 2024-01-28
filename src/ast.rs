@@ -1,6 +1,8 @@
+use lsp_types::{Position, Range};
 use markdown::mdast::{
     Definition, FootnoteDefinition, FootnoteReference, Heading, Link, LinkReference, Node, Text,
 };
+use regex::Regex;
 
 /// Recursive AST traversal
 #[macro_export]

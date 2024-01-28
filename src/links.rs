@@ -66,13 +66,13 @@ pub fn resolve_link<'a>(link: &'a Link, state: &State) -> Option<ResolvedLink<'a
     }
 }
 
-struct Extracted {
+struct ExtractedWikiLink {
     content: String,
     start_position: usize,
     line_number: usize,
 }
 
-impl Extracted {
+impl ExtractedWikiLink {
     fn link_text_node(&self, start_line: usize) -> Node {
         let link_text = Text {
             value: self.content.clone(),
@@ -116,7 +116,7 @@ impl Extracted {
     }
 }
 
-fn extract_wiki_links(input: &str) -> Vec<Extracted> {
+fn extract_wiki_links(input: &str) -> Vec<ExtractedWikiLink> {
     let re = Regex::new(r"\[\[([\s\S]*?)\]\]").unwrap();
 
     input
@@ -124,7 +124,7 @@ fn extract_wiki_links(input: &str) -> Vec<Extracted> {
         .enumerate()
         .flat_map(|(line_number, line)| {
             re.captures_iter(line).filter_map(move |captures| {
-                captures.get(1).map(|content| Extracted {
+                captures.get(1).map(|content| ExtractedWikiLink {
                     content: content.as_str().to_string(),
                     start_position: content.start() + 1,
                     line_number,

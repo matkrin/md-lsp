@@ -2,12 +2,13 @@ use std::hash::Hash;
 
 use itertools::Itertools;
 use lsp_types::{Position, Range, Url};
-use markdown::mdast::{FootnoteReference, LinkReference, Node};
+use markdown::mdast::{FootnoteReference, Link, LinkReference, Node};
 use regex::Regex;
 
 use crate::{
     ast::{find_definition_for_identifier, find_foot_definition_for_identifier},
     definition::range_from_position,
+    links::resolve_link,
     state::State,
 };
 
@@ -33,7 +34,11 @@ pub fn check_links(ast: &Node, req_uri: &Url, state: &State) -> Vec<BrokenLink> 
     if let Some(children) = ast.children() {
         for child in children {
             match child {
-                Node::Link(link) => {}
+                Node::Link(link)
+                    if !link.url.starts_with('#') && !link.url.starts_with("https") =>
+                {
+                    v.extend(handle_broken_link(state, link))
+                }
                 // LinkRef
                 Node::Text(t) if t.value.contains("][") => {
                     v.extend(handle_broken_ref(req_uri, state))
@@ -51,16 +56,36 @@ pub fn check_links(ast: &Node, req_uri: &Url, state: &State) -> Vec<BrokenLink> 
     v.into_iter().unique().collect()
 }
 
+fn handle_broken_link(state: &State, link: &Link) -> Vec<BrokenLink> {
+    log::info!("RESOLVED LINK: {:?}", resolve_link(link, state));
+    let resolved_link = resolve_link(link, state);
+    let mut broken_links = Vec::new();
+    match resolved_link {
+        Some(_) => {}
+        None => {
+            if let Some(pos) = &link.position {
+                let range = range_from_position(pos);
+                broken_links.push(BrokenLink {
+                    range,
+                    message: "Link to non-existent file".to_string(),
+                })
+            };
+        }
+    };
+    broken_links
+}
 
 fn handle_broken_ref(req_uri: &Url, state: &State) -> Vec<BrokenLink> {
     let ast = state.ast_for_uri(req_uri).unwrap();
     let mut ranges = Vec::new();
     let re = Regex::new(r"\[([^]]+)\]\[([^]]+)\]").unwrap();
     find_broken_link_ref(ast, &re, &mut ranges);
-    log::info!("RANGES {:?}", ranges);
     ranges
         .iter()
-        .map(|r| BrokenLink { range: *r, message: "Link reference to non-existent link definition".to_string() })
+        .map(|r| BrokenLink {
+            range: *r,
+            message: "Link reference to non-existent link definition".to_string(),
+        })
         .collect::<Vec<_>>()
 }
 
@@ -69,7 +94,6 @@ fn handle_broken_footnote_ref(req_uri: &Url, state: &State) -> Vec<BrokenLink> {
     let mut ranges = Vec::new();
     let re = Regex::new(r"\[(\^\S+)\]").unwrap();
     find_broken_link_ref(ast, &re, &mut ranges);
-    log::info!("RANGES {:?}", ranges);
     ranges
         .iter()
         .map(|r| BrokenLink {
@@ -78,7 +102,6 @@ fn handle_broken_footnote_ref(req_uri: &Url, state: &State) -> Vec<BrokenLink> {
         })
         .collect()
 }
-
 
 fn find_broken_link_ref(node: &Node, re: &Regex, positions: &mut Vec<Range>) {
     if let Some(children) = node.children() {

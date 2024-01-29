@@ -3,11 +3,11 @@ use markdown::{mdast::{Node, Link}, unist};
 
 use crate::{ast::{
     find_definition_for_identifier, find_foot_definition_for_identifier, find_heading_for_url,
-}, state::State, hover::get_target_uri};
+}, state::State, hover::get_target_heading_uri};
 
 pub fn def_handle_link_to_heading(req_uri: &Url, link: &Link, state: &State) -> (Url, Option<Range>) {
 
-    let (target_uri, heading_text) = get_target_uri(req_uri, link, state);
+    let (target_uri, heading_text) = get_target_heading_uri(req_uri, link, state);
     match heading_text {
         Some(ht) => (target_uri.clone(), handle_link_heading(&target_uri, ht, state)),
         None => (target_uri, Some(range_zero())),

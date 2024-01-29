@@ -28,6 +28,7 @@ fn main() -> Result<()> {
         definition_provider: Some(OneOf::Left(true)),
         hover_provider: Some(HoverProviderCapability::Simple(true)),
         text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
+        references_provider: Some(OneOf::Left(true)),//<bool, ReferencesOptions>>,
         ..Default::default()
     })
     .unwrap();

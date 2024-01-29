@@ -7,12 +7,13 @@ use lsp_types::{
 };
 use markdown::mdast::Node;
 
-use crate::ast::find_link_for_position;
+use crate::ast::{find_definition_for_position, find_link_for_position};
 use crate::definition::{
     def_handle_link_footnote, def_handle_link_ref, def_handle_link_to_heading,
 };
 use crate::diagnostics::check_links;
 use crate::hover::{hov_handle_footnote_reference, hov_handle_link, hov_handle_link_reference};
+use crate::references::{handle_definition, handle_footnote_definition, handle_heading};
 use crate::state::State;
 
 pub struct Server {
@@ -36,6 +37,7 @@ impl Server {
                     match req.method.as_ref() {
                         "textDocument/definition" => self.handle_defintion(req, &mut state)?,
                         "textDocument/hover" => self.handle_hover(req, &mut state)?,
+                        "textDocument/references" => self.handle_references(req, &mut state)?,
                         "textDocument/diagnostic" => {
                             log::info!("DIAGNOSTIC REQUEST: {:?}", req);
                         }
@@ -94,7 +96,9 @@ impl Server {
     pub fn handle_diagnostic(&self, uri: &Url, state: &State) -> Result<()> {
         let ast = state.ast_for_uri(uri).unwrap();
         // for link, reflink, footnote check if their definitions exist
-        let diagnostics = check_links(ast, uri, state).into_iter().map(|x| {
+        let diagnostics = check_links(ast, uri, state)
+            .into_iter()
+            .map(|x| {
                 Diagnostic {
                     range: x.range,
                     severity: Some(DiagnosticSeverity::ERROR),
@@ -106,7 +110,8 @@ impl Server {
                     tags: None,
                     data: None,
                 }
-        }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
 
         let diagnostic_params = PublishDiagnosticsParams {
             uri: uri.clone(),
@@ -215,6 +220,50 @@ impl Server {
             error: None,
         };
         self.connection.sender.send(Message::Response(response))?;
+
+        Ok(())
+    }
+    /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_references
+    fn handle_references(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
+        let params: HoverParams = serde_json::from_value(req.params)?;
+        let position_params = params.text_document_position_params;
+        let req_uri = position_params.text_document.uri;
+        let Position { line, character } = position_params.position;
+
+        let req_ast = state.ast_for_uri(&req_uri).unwrap();
+        let node = find_definition_for_position(req_ast, line, character);
+
+        let found_links = match node {
+            Some(n) => match n {
+                Node::Heading(h) => Some(handle_heading(h, state)),
+                Node::Definition(d) => Some(handle_definition(req_ast, &req_uri, d)),
+                Node::FootnoteDefinition(f) => {
+                    Some(handle_footnote_definition(req_ast, &req_uri, f))
+                }
+                _ => None,
+            },
+            None => None,
+        };
+
+        let result = found_links.map(|found_links| {
+            found_links
+                .into_iter()
+                .map(|found_link| Location {
+                    uri: found_link.file_url,
+                    range: found_link.range,
+                })
+                .collect::<Vec<Location>>()
+        });
+
+        let result = serde_json::to_value(result)?;
+
+        let resp = Response {
+            id: req.id,
+            result: Some(result),
+            error: None,
+        };
+
+        self.connection.sender.send(Message::Response(resp))?;
 
         Ok(())
     }

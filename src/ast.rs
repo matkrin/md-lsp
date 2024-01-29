@@ -4,6 +4,8 @@ use markdown::mdast::{
 };
 use regex::Regex;
 
+use crate::definition::range_from_position;
+
 /// Recursive AST traversal
 #[macro_export]
 macro_rules! traverse_ast {
@@ -40,6 +42,27 @@ pub fn find_link_for_position(node: &Node, line: u32, character: u32) -> Option<
     };
 
     traverse_ast!(node, find_link_for_position, line, character)
+}
+
+pub fn find_definition_for_position(node: &Node, line: u32, character: u32) -> Option<&Node> {
+    match node {
+        Node::Heading(Heading { position, .. })
+        | Node::Definition(Definition { position, .. })
+        | Node::FootnoteDefinition(FootnoteDefinition { position, .. }) => {
+            if let Some(pos) = position {
+                if (line + 1) as usize >= pos.start.line
+                    && (line + 1) as usize <= pos.end.line
+                    && ((character + 1) as usize) >= pos.start.column
+                    && ((character + 1) as usize) <= pos.end.column
+                {
+                    return Some(node);
+                }
+            }
+        }
+        _ => {}
+    };
+
+    traverse_ast!(node, find_definition_for_position, line, character)
 }
 
 pub fn find_heading_for_url<'a>(node: &'a Node, link_url: &str) -> Option<&'a Heading> {
@@ -80,3 +103,42 @@ pub fn find_foot_definition_for_identifier<'a>(
     traverse_ast!(node, find_foot_definition_for_identifier, identifier)
 }
 
+pub fn find_link_references_for_identifier(
+    node: &Node,
+    identifier: &str,
+    link_refs: &mut Vec<Range>,
+) {
+    if let Some(children) = node.children() {
+        for child in children {
+            if let Node::LinkReference(lref) = child {
+                if lref.identifier == identifier {
+                    if let Some(pos) = &lref.position {
+                        link_refs.push(range_from_position(pos))
+                    }
+                }
+            } else {
+                find_link_references_for_identifier(child, identifier, link_refs)
+            }
+        }
+    };
+}
+
+pub fn find_footnote_references_for_identifier(
+    node: &Node,
+    identifier: &str,
+    footnote_refs: &mut Vec<Range>,
+) {
+    if let Some(children) = node.children() {
+        for child in children {
+            if let Node::FootnoteReference(fn_ref) = node {
+                if fn_ref.identifier == identifier {
+                    if let Some(pos) = &fn_ref.position {
+                        footnote_refs.push(range_from_position(pos))
+                    }
+                }
+            } else {
+                find_footnote_references_for_identifier(child, identifier, footnote_refs)
+            }
+        }
+    };
+}

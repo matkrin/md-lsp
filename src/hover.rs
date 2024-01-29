@@ -3,7 +3,7 @@ use markdown::mdast::{Definition, FootnoteReference, Heading, Link, LinkReferenc
 
 use crate::{ast::find_heading_for_url, links::resolve_link, state::State, traverse_ast};
 
-pub fn get_target_uri<'a>(req_uri: &Url, link: &'a Link, state: &'a State) -> (Url, Option<&'a str>) {
+pub fn get_target_heading_uri<'a>(req_uri: &Url, link: &'a Link, state: &'a State) -> (Url, Option<&'a str>) {
     match &state.workspace_folder() {
         Some(_) => match resolve_link(link, state) {
             Some(rl) => {
@@ -17,7 +17,7 @@ pub fn get_target_uri<'a>(req_uri: &Url, link: &'a Link, state: &'a State) -> (U
 }
 
 pub fn hov_handle_link(req_uri: &Url, link: &Link, state: &State) -> Option<String> {
-    let (target_uri, heading_text) = get_target_uri(req_uri, link, state);
+    let (target_uri, heading_text) = get_target_heading_uri(req_uri, link, state);
     match heading_text {
         Some(ht) => handle_link_heading(&target_uri, ht, state),
         None => handle_link_other_file(&target_uri, state),

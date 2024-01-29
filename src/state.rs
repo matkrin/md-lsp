@@ -9,7 +9,7 @@ use crate::links::parse_wiki_links;
 #[derive(Debug)]
 pub struct MdFile {
     buffer: String,
-    ast: Node,
+    pub ast: Node,
 }
 
 #[derive(Debug, Default)]

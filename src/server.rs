@@ -233,6 +233,8 @@ impl Server {
         let req_ast = state.ast_for_uri(&req_uri).unwrap();
         let node = find_definition_for_position(req_ast, line, character);
 
+        // log::info!("AST : {:?}", req_ast);
+        // log::info!("NODE : {:?}", node);
         let found_links = match node {
             Some(n) => match n {
                 Node::Heading(h) => Some(handle_heading(h, state)),

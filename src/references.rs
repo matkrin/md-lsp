@@ -30,6 +30,7 @@ pub fn handle_footnote_definition(
     req_uri: & Url,
     fn_definition: &FootnoteDefinition,
 ) -> Vec<FoundRef> {
+    log::info!("HANDLE");
     let mut footnote_ranges = Vec::new();
     find_footnote_references_for_identifier(req_ast, &fn_definition.identifier, &mut footnote_ranges);
     footnote_ranges.into_iter().map(|fnr| FoundRef {file_url: req_uri.clone(), range: fnr}).collect()

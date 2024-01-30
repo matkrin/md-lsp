@@ -49,12 +49,17 @@ pub fn find_definition_for_position(node: &Node, line: u32, character: u32) -> O
         Node::Heading(Heading { position, .. })
         | Node::Definition(Definition { position, .. })
         | Node::FootnoteDefinition(FootnoteDefinition { position, .. }) => {
+                log::info!("FIND before: {:?}", node);
             if let Some(pos) = position {
+                    log::info!("POS: {:?}", pos );
+                    log::info!("LINE: {:?}", line );
+                    log::info!("CHARACTER: {:?}", character );
                 if (line + 1) as usize >= pos.start.line
                     && (line + 1) as usize <= pos.end.line
                     && ((character + 1) as usize) >= pos.start.column
-                    && ((character + 1) as usize) <= pos.end.column
+                    // && ((character + 1) as usize) <= pos.end.column
                 {
+                    log::info!("FIND: {:?}", node);
                     return Some(node);
                 }
             }
@@ -128,9 +133,15 @@ pub fn find_footnote_references_for_identifier(
     identifier: &str,
     footnote_refs: &mut Vec<Range>,
 ) {
+    // log::info!("FFFFFFF");
+    log::info!("FOOTNOTE IDENTIFIER Before: {:?}", identifier);
+    // log::info!("FOOTNOTE IDENTIFIER : {:?}", fn_ref.identifier);
     if let Some(children) = node.children() {
         for child in children {
-            if let Node::FootnoteReference(fn_ref) = node {
+            if let Node::FootnoteReference(fn_ref) = child {
+
+                log::info!("FOOTNOTE IDENTIFIER : {:?}", identifier);
+                log::info!("FOOTNOTE IDENTIFIER : {:?}", fn_ref.identifier);
                 if fn_ref.identifier == identifier {
                     if let Some(pos) = &fn_ref.position {
                         footnote_refs.push(range_from_position(pos))

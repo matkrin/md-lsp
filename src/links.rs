@@ -58,10 +58,11 @@ impl<'a> ResolvedLink<'a> {
 
 pub fn resolve_link<'a>(link: &'a Link, state: &State) -> Option<ResolvedLink<'a>> {
     match link.url.split_once('#') {
+        // internal link to heading `#...`
         Some(("", _)) => None,
         // link with referece to heading `...#...`
         Some((file, heading_text)) => ResolvedLink::from_state(file, Some(heading_text), state),
-        // link without referece to heading
+        // link without referece to heading `...`
         None => ResolvedLink::from_state(&link.url, None, state),
     }
 }

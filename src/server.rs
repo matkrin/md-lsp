@@ -187,6 +187,7 @@ impl Server {
 
         let req_ast = state.ast_for_uri(&req_uri).unwrap();
         let node = find_link_for_position(req_ast, line, character);
+        log::info!("HOVER NODE: {:?}", node);
 
         let message = match node {
             Some(n) => match n {
@@ -233,11 +234,9 @@ impl Server {
         let req_ast = state.ast_for_uri(&req_uri).unwrap();
         let node = find_definition_for_position(req_ast, line, character);
 
-        // log::info!("AST : {:?}", req_ast);
-        // log::info!("NODE : {:?}", node);
         let found_links = match node {
             Some(n) => match n {
-                Node::Heading(h) => Some(handle_heading(h, state)),
+                Node::Heading(h) => Some(handle_heading(h, &req_uri, state)),
                 Node::Definition(d) => Some(handle_definition(req_ast, &req_uri, d)),
                 Node::FootnoteDefinition(f) => {
                     Some(handle_footnote_definition(req_ast, &req_uri, f))

@@ -57,7 +57,8 @@ impl State {
             .into_iter()
             .map(|file| {
                 let buffer = fs::read_to_string(&file).unwrap();
-                let ast = markdown::to_mdast(&buffer, &markdown::ParseOptions::gfm()).unwrap();
+                let mut ast = markdown::to_mdast(&buffer, &markdown::ParseOptions::gfm()).unwrap();
+                parse_wiki_links(&mut ast);
                 let uri = Url::from_file_path(&file).unwrap();
 
                 (

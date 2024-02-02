@@ -6,3 +6,4 @@ pub mod links;
 pub mod references;
 pub mod server;
 pub mod state;
+pub mod symbols;

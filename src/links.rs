@@ -41,7 +41,6 @@ impl<'a> ResolvedLink<'a> {
         heading_text: Option<&'a str>,
         state: &State,
     ) -> Option<ResolvedLink<'a>> {
-        log::info!("LINKED FILE  : {}", linked_file);
         let file = if linked_file.ends_with(".md") {
             PathBuf::from(linked_file)
         } else {

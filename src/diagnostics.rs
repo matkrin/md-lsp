@@ -57,7 +57,6 @@ pub fn check_links(ast: &Node, req_uri: &Url, state: &State) -> Vec<BrokenLink> 
 }
 
 fn handle_broken_link(state: &State, link: &Link) -> Vec<BrokenLink> {
-    log::info!("RESOLVED LINK: {:?}", resolve_link(link, state));
     let resolved_link = resolve_link(link, state);
     let mut broken_links = Vec::new();
     match resolved_link {

@@ -7,7 +7,6 @@ pub fn get_target_heading_uri<'a>(req_uri: &Url, link: &'a Link, state: &'a Stat
     match &state.workspace_folder() {
         Some(_) => match resolve_link(link, state) {
             Some(rl) => {
-                log::info!("RESOLVEDD LINK  : {:?}", rl);
                 (rl.uri, rl.heading)
             }
             None => (req_uri.clone(), Some(&link.url)),

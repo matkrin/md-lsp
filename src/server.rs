@@ -2,19 +2,23 @@ use anyhow::Result;
 use lsp_server::{Connection, Message, Notification, Response};
 use lsp_types::{
     Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
-    DidOpenTextDocumentParams, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams,
-    Location, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams, Url,
+    DidOpenTextDocumentParams, DocumentSymbol, DocumentSymbolParams, GotoDefinitionParams,
+    GotoDefinitionResponse, Hover, HoverParams, Location, MarkupContent, MarkupKind, Position,
+    PublishDiagnosticsParams, SymbolKind, Url,
 };
-use markdown::mdast::Node;
+use markdown::mdast::{Node, Text};
 
-use crate::ast::{find_definition_for_position, find_link_for_position};
+use crate::ast::{
+    find_definition_for_position, find_headings, find_link_for_position, get_heading_text,
+};
 use crate::definition::{
-    def_handle_link_footnote, def_handle_link_ref, def_handle_link_to_heading,
+    def_handle_link_footnote, def_handle_link_ref, def_handle_link_to_heading, range_from_position,
 };
 use crate::diagnostics::check_links;
 use crate::hover::{hov_handle_footnote_reference, hov_handle_link, hov_handle_link_reference};
 use crate::references::{handle_definition, handle_footnote_definition, handle_heading};
 use crate::state::State;
+use crate::symbols::document_symbols;
 
 pub struct Server {
     connection: Connection,
@@ -27,17 +31,19 @@ impl Server {
 
     pub fn run(&self, mut state: State) -> Result<()> {
         for msg in &self.connection.receiver {
-            log::info!("GOT MSG: {msg:?}");
             match msg {
                 Message::Request(req) => {
                     if self.connection.handle_shutdown(&req)? {
                         return Ok(());
                     }
-                    log::info!("GOT REQUEST: {req:?}");
                     match req.method.as_ref() {
                         "textDocument/definition" => self.handle_defintion(req, &mut state)?,
                         "textDocument/hover" => self.handle_hover(req, &mut state)?,
                         "textDocument/references" => self.handle_references(req, &mut state)?,
+                        "textDocument/documentSymbol" => {
+                            self.handle_document_symbol(req, &mut state)?
+                        }
+                        "workspace/symbol" => self.handle_workspace_symbol(req, &mut state)?,
                         "textDocument/diagnostic" => {
                             log::info!("DIAGNOSTIC REQUEST: {:?}", req);
                         }
@@ -49,17 +55,14 @@ impl Server {
                 Message::Response(resp) => {
                     log::info!("GOT RESPONSE: {resp:?}");
                 }
-                Message::Notification(not) => {
-                    log::info!("GOT NOTIFICATION: {not:?}");
-                    match not.method.as_ref() {
-                        "textDocument/didOpen" => self.handle_did_open(not, &mut state)?,
-                        "textDocument/didChange" => self.handle_did_change(not, &mut state)?,
-                        "textDocument/didClose" => self.handle_did_close(not)?,
-                        _ => {
-                            log::info!("OTHER NOTIFICATION: {:?}", not)
-                        }
+                Message::Notification(not) => match not.method.as_ref() {
+                    "textDocument/didOpen" => self.handle_did_open(not, &mut state)?,
+                    "textDocument/didChange" => self.handle_did_change(not, &mut state)?,
+                    "textDocument/didClose" => self.handle_did_close(not)?,
+                    _ => {
+                        log::info!("OTHER NOTIFICATION: {:?}", not)
                     }
-                }
+                },
             }
         }
         Ok(())
@@ -132,13 +135,11 @@ impl Server {
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition
     fn handle_defintion(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
         let params: GotoDefinitionParams = serde_json::from_value(req.params)?;
-        log::info!("GOT gotoDefinition REQUEST #{}: {:?}", req.id, params);
         let position_params = params.text_document_position_params;
         let req_uri = position_params.text_document.uri;
         let Position { line, character } = position_params.position;
         let req_ast = state.ast_for_uri(&req_uri).unwrap();
         let node = find_link_for_position(req_ast, line, character);
-        log::info!("GOTO FOUND NODE : {:?}", node);
 
         let (target_uri, range) = match node {
             Some(n) => match n {
@@ -266,6 +267,32 @@ impl Server {
 
         self.connection.sender.send(Message::Response(resp))?;
 
+        Ok(())
+    }
+
+    /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_documentSymbol
+    fn handle_document_symbol(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
+        let params: DocumentSymbolParams = serde_json::from_value(req.params)?;
+        let req_uri = params.text_document.uri;
+        let req_ast = state.ast_for_uri(&req_uri).unwrap();
+
+        let result = document_symbols(req_ast).and_then(|res| {
+            serde_json::to_value(res).ok()
+        });
+
+        let resp = Response {
+            id: req.id,
+            result,
+            error: None,
+        };
+
+        self.connection.sender.send(Message::Response(resp))?;
+
+        Ok(())
+    }
+
+    fn handle_workspace_symbol(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
+        log::info!("WORKSPACE SYMBOL REQUEST: {:?}", req);
         Ok(())
     }
 }

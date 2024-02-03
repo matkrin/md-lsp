@@ -2,23 +2,21 @@ use anyhow::Result;
 use lsp_server::{Connection, Message, Notification, Response};
 use lsp_types::{
     Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
-    DidOpenTextDocumentParams, DocumentSymbol, DocumentSymbolParams, GotoDefinitionParams,
-    GotoDefinitionResponse, Hover, HoverParams, Location, MarkupContent, MarkupKind, Position,
-    PublishDiagnosticsParams, SymbolKind, Url,
+    DidOpenTextDocumentParams, DocumentSymbolParams, GotoDefinitionParams, GotoDefinitionResponse,
+    Hover, HoverParams, Location, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams,
+    Url,
 };
-use markdown::mdast::{Node, Text};
+use markdown::mdast::Node;
 
-use crate::ast::{
-    find_definition_for_position, find_headings, find_link_for_position, get_heading_text,
-};
+use crate::ast::{find_definition_for_position, find_link_for_position};
 use crate::definition::{
-    def_handle_link_footnote, def_handle_link_ref, def_handle_link_to_heading, range_from_position,
+    def_handle_link_footnote, def_handle_link_ref, def_handle_link_to_heading,
 };
 use crate::diagnostics::check_links;
 use crate::hover::{hov_handle_footnote_reference, hov_handle_link, hov_handle_link_reference};
 use crate::references::{handle_definition, handle_footnote_definition, handle_heading};
 use crate::state::State;
-use crate::symbols::document_symbols;
+use crate::symbols::{document_symbols, workspace_symbols};
 
 pub struct Server {
     connection: Connection,
@@ -276,9 +274,7 @@ impl Server {
         let req_uri = params.text_document.uri;
         let req_ast = state.ast_for_uri(&req_uri).unwrap();
 
-        let result = document_symbols(req_ast).and_then(|res| {
-            serde_json::to_value(res).ok()
-        });
+        let result = document_symbols(req_ast).and_then(|res| serde_json::to_value(res).ok());
 
         let resp = Response {
             id: req.id,
@@ -291,8 +287,18 @@ impl Server {
         Ok(())
     }
 
+    /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_symbol
     fn handle_workspace_symbol(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
-        log::info!("WORKSPACE SYMBOL REQUEST: {:?}", req);
+        let result = workspace_symbols(state).and_then(|res| serde_json::to_value(res).ok());
+
+        let resp = Response {
+            id: req.id,
+            result,
+            error: None,
+        };
+
+        self.connection.sender.send(Message::Response(resp))?;
+
         Ok(())
     }
 }

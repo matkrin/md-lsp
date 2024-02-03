@@ -2,15 +2,10 @@ use std::hash::Hash;
 
 use itertools::Itertools;
 use lsp_types::{Position, Range, Url};
-use markdown::mdast::{FootnoteReference, Link, LinkReference, Node};
+use markdown::mdast::{Link, Node};
 use regex::Regex;
 
-use crate::{
-    ast::{find_definition_for_identifier, find_foot_definition_for_identifier},
-    definition::range_from_position,
-    links::resolve_link,
-    state::State,
-};
+use crate::{definition::range_from_position, links::resolve_link, state::State};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BrokenLink {

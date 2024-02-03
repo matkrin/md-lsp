@@ -1,8 +1,7 @@
-use lsp_types::{Position, Range};
+use lsp_types::Range;
 use markdown::mdast::{
     Definition, FootnoteDefinition, FootnoteReference, Heading, Link, LinkReference, Node, Text,
 };
-use regex::Regex;
 
 use crate::definition::range_from_position;
 
@@ -159,12 +158,9 @@ pub fn get_heading_text(heading: &Heading) -> Option<&str> {
     log::info!("HEADING FN: {:?}", heading);
     for child in &heading.children {
         log::info!("CHILD: {:?}", child);
-        match child {
-            Node::Text(Text { value, .. }) => {
-                log::info!("VALUE : {:?}", value);
-                return Some(value);
-            }
-            _ => (),
+        if let Node::Text(Text { value, .. }) = child {
+            log::info!("VALUE : {:?}", value);
+            return Some(value);
         };
     }
     None

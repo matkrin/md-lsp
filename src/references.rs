@@ -74,10 +74,16 @@ fn find_links_in(
     if let Some(children) = ast.children() {
         for child in children {
             match child {
-                Node::Link(link) => {
-                    if let (Some(pos), Some((file_name, ht))) =
-                        (&link.position, link.url.split_once('#'))
-                    {
+                Node::Link(link) => match (&link.position, link.url.split_once('#')) {
+                    (Some(pos), Some(("", ht))) => {
+                        if heading_text == ht {
+                            heading_refs.push(FoundRef {
+                                file_url: req_uri.clone(),
+                                range: range_from_position(pos),
+                            })
+                        }
+                    },
+                    (Some(pos), Some((file_name, ht))) => {
                         if heading_text == ht && f_name == file_name {
                             heading_refs.push(FoundRef {
                                 file_url: target_url.clone(),
@@ -85,7 +91,8 @@ fn find_links_in(
                             })
                         }
                     }
-                }
+                    _ => (),
+                },
                 _ => find_links_in(child, heading_text, req_uri, target_url, heading_refs),
             }
         }

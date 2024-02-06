@@ -2,9 +2,9 @@ use anyhow::Result;
 use lsp_server::{Connection, Message, Notification, Response};
 use lsp_types::{
     Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
-    DidOpenTextDocumentParams, DocumentSymbolParams, GotoDefinitionParams, GotoDefinitionResponse,
-    Hover, HoverParams, Location, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams,
-    Url,
+    DidOpenTextDocumentParams, DocumentFormattingParams, DocumentSymbolParams,
+    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams, Location, MarkupContent,
+    MarkupKind, Position, PublishDiagnosticsParams, Range, TextEdit, Url,
 };
 use markdown::mdast::Node;
 
@@ -13,6 +13,7 @@ use crate::definition::{
     def_handle_link_footnote, def_handle_link_ref, def_handle_link_to_heading,
 };
 use crate::diagnostics::check_links;
+use crate::formatting::formatting;
 use crate::hover::{hov_handle_footnote_reference, hov_handle_link, hov_handle_link_reference};
 use crate::references::{handle_definition, handle_footnote_definition, handle_heading};
 use crate::state::State;
@@ -42,6 +43,7 @@ impl Server {
                             self.handle_document_symbol(req, &mut state)?
                         }
                         "workspace/symbol" => self.handle_workspace_symbol(req, &mut state)?,
+                        "textDocument/formatting" => self.handle_formatting(req, &mut state)?,
                         "textDocument/diagnostic" => {
                             log::info!("DIAGNOSTIC REQUEST: {:?}", req);
                         }
@@ -291,6 +293,23 @@ impl Server {
     fn handle_workspace_symbol(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
         let result = workspace_symbols(state).and_then(|res| serde_json::to_value(res).ok());
 
+        let resp = Response {
+            id: req.id,
+            result,
+            error: None,
+        };
+
+        self.connection.sender.send(Message::Response(resp))?;
+
+        Ok(())
+    }
+
+    /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_formatting
+    fn handle_formatting(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
+        let params: DocumentFormattingParams = serde_json::from_value(req.params)?;
+        let req_uri = params.text_document.uri;
+
+        let result = formatting(&req_uri, state).and_then(|it| serde_json::to_value(it).ok());
         let resp = Response {
             id: req.id,
             result,

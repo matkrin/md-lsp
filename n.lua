@@ -1,29 +1,29 @@
-local config = {
-    name = "md-lsp",
-    cmd = {"./target/debug/md-lsp"},
-    root_dir = vim.loop.cwd(),
+-- local config = {
+--     name = "md-lsp",
+--     cmd = { "./target/debug/md-lsp" },
+--     root_dir = vim.loop.cwd(),
+-- }
+--
+--
+-- local id = vim.lsp.start_client(config)
+--
+-- local bufnr = vim.api.nvim_get_current_buf()
+--
+-- if not vim.lsp.buf_is_attached(bufnr, id) then
+--     vim.lsp.buf_attach_client(bufnr, id)
+-- end
+
+local lspconfig = require("lspconfig")
+local configs = require("lspconfig.configs")
+
+configs.md_lsp = {
+    default_config = {
+        name = "md-lsp",
+        cmd = { "./target/debug/md-lsp" },
+        filetypes = { "markdown" },
+        root_dir = lspconfig.util.root_pattern('.git'),
+        single_file_support = true,
+    },
 }
 
-
-local id = vim.lsp.start_client(config)
-
-local bufnr = vim.api.nvim_get_current_buf()
-
-if not vim.lsp.buf_is_attached(bufnr, id) then
-    vim.lsp.buf_attach_client(bufnr, id)
-end
-
--- local function attach_lsp(args)
---     if id == nil then
---         return
---     end
---
---     local bufnr = args.buffer or args.buf;
---     if not bufnr or not filter(bufnr) then
---         return;
---     end
---
---     if not vim.lsp.buf_is_attached(args.buffer, id) then
---         vim.lsp.buf_attach_client(args.buffer, id);
---     end
--- end
+lspconfig.md_lsp.setup({})

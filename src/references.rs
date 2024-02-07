@@ -69,9 +69,9 @@ fn find_links_in(
     target_url: &Url,
     heading_refs: &mut Vec<FoundRef>,
 ) {
-    let f_path = req_uri.to_file_path().unwrap();
-    let f_name = f_path.file_stem().unwrap();
-    if let Some(children) = ast.children() {
+    let file_path = req_uri.to_file_path().unwrap();
+    let file_name = file_path.file_stem();
+    if let (Some(children), Some(f_name)) = (ast.children(), file_name) {
         for child in children {
             match child {
                 Node::Link(link) if link.url.as_str() == f_name => {

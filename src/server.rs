@@ -96,19 +96,19 @@ impl Server {
     }
 
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_publishDiagnostics
-    pub fn handle_diagnostic(&self, uri: &Url, state: &State) -> Result<()> {
-        let ast = state.ast_for_uri(uri).unwrap();
+    pub fn handle_diagnostic(&self, req_uri: &Url, state: &State) -> Result<()> {
+        let ast = state.ast_for_uri(req_uri).unwrap();
         // for link, reflink, footnote check if their definitions exist
-        let diagnostics = check_links(ast, uri, state)
+        let diagnostics = check_links(ast, req_uri, state)
             .into_iter()
-            .map(|x| {
+            .map(|it| {
                 Diagnostic {
-                    range: x.range,
+                    range: it.range,
                     severity: Some(DiagnosticSeverity::ERROR),
                     code: None,
                     code_description: None,
                     source: Some("md-lsp".to_string()),
-                    message: x.message,
+                    message: it.message,
                     related_information: None, // might be interesting
                     tags: None,
                     data: None,
@@ -117,12 +117,12 @@ impl Server {
             .collect::<Vec<_>>();
 
         let diagnostic_params = PublishDiagnosticsParams {
-            uri: uri.clone(),
+            uri: req_uri.clone(),
             diagnostics,
             version: None,
         };
 
-        let diagnostic_params = serde_json::to_value(diagnostic_params).unwrap();
+        let diagnostic_params = serde_json::to_value(diagnostic_params)?;
 
         let resp = Notification {
             method: "textDocument/publishDiagnostics".to_string(),

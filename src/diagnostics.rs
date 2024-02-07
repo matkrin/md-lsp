@@ -59,9 +59,10 @@ fn handle_broken_link(state: &State, link: &Link) -> Vec<BrokenLink> {
         None => {
             if let Some(pos) = &link.position {
                 let range = range_from_position(pos);
+                let message = format!("Link to non-existent file `{}`", link.url);
                 broken_links.push(BrokenLink {
                     range,
-                    message: "Link to non-existent file".to_string(),
+                    message,
                 })
             };
         }

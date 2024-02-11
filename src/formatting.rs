@@ -42,3 +42,17 @@ fn range_for_full_doc(num_lines: u32, last_char: u32) -> Range {
         },
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_range_for_full_doc() {
+        let res = range_for_full_doc(10, 10);
+        assert_eq!(res.start.line, 0);
+        assert_eq!(res.start.character, 0);
+        assert_eq!(res.end.line, 10);
+        assert_eq!(res.end.character, 10);
+    }
+}

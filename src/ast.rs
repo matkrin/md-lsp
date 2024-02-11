@@ -155,11 +155,8 @@ pub fn find_headings<'a>(node: &'a Node, headings: &mut Vec<&'a Heading>) {
 }
 
 pub fn get_heading_text(heading: &Heading) -> Option<&str> {
-    log::info!("HEADING FN: {:?}", heading);
     for child in &heading.children {
-        log::info!("CHILD: {:?}", child);
         if let Node::Text(Text { value, .. }) = child {
-            log::info!("VALUE : {:?}", value);
             return Some(value);
         };
     }

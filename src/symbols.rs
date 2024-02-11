@@ -10,7 +10,6 @@ use crate::{
 pub fn document_symbols(req_ast: &Node) -> Option<Vec<DocumentSymbol>> {
     let mut headings = Vec::new();
     find_headings(req_ast, &mut headings);
-    log::info!("HEADINGS: {:?}", headings);
 
     headings
         .into_iter()
@@ -69,4 +68,17 @@ pub fn workspace_symbols(state: &State) -> Option<Vec<WorkspaceSymbol>> {
 fn add_pounds(heading_text: &str, depth: u8) -> String {
     let pounds = (0..depth).map(|_| '#').collect::<String>();
     format!("{pounds} {heading_text}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add_pounds() {
+        let res = add_pounds("hello", 1);
+        assert_eq!(res, "# hello");
+        let res = add_pounds("test", 3);
+        assert_eq!(res, "### test");
+    }
 }

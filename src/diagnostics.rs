@@ -5,7 +5,12 @@ use lsp_types::{Position, Range, Url};
 use markdown::mdast::{Link, Node};
 use regex::Regex;
 
-use crate::{definition::range_from_position, links::resolve_link, state::State};
+use crate::{
+    ast::find_heading_for_url,
+    definition::range_from_position,
+    links::{resolve_link, ResolvedLink},
+    state::State,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BrokenLink {
@@ -55,7 +60,6 @@ fn handle_broken_link(state: &State, link: &Link) -> Vec<BrokenLink> {
     let resolved_link = resolve_link(link, state);
     let mut broken_links = Vec::new();
     match resolved_link {
-        Some(_) => {}
         None => {
             if let Some(pos) = &link.position {
                 let range = range_from_position(pos);
@@ -63,6 +67,22 @@ fn handle_broken_link(state: &State, link: &Link) -> Vec<BrokenLink> {
                 broken_links.push(BrokenLink { range, message })
             };
         }
+        Some(ResolvedLink { uri, heading }) => {
+            log::info!("heading {:?}", heading);
+            if let (Some(h), Some(pos)) = (heading, &link.position) {
+                let found = state
+                    .ast_for_uri(&uri)
+                    .and_then(|ast| find_heading_for_url(ast, h));
+                let file_path = uri.to_file_path().unwrap();
+                let file_name = file_path.file_name().and_then(|f| f.to_str());
+                if let (Some(f), None) = (file_name, found) {
+                    let range = range_from_position(pos);
+                    let message = format!("Link to non-existent heading `{}` in file `{}`", h, f);
+                    broken_links.push(BrokenLink { range, message })
+                }
+            };
+        }
+        Some(_) => {}
     };
     broken_links
 }

@@ -39,6 +39,11 @@ pub fn check_links(ast: &Node, req_uri: &Url, state: &State) -> Vec<BrokenLink> 
                 {
                     v.extend(handle_broken_link(state, link))
                 }
+                Node::Link(link) if link.url.starts_with('#') => {
+                    if let Some(broken_link) = handle_broken_heading_link(link, req_uri, state) {
+                        v.push(broken_link)
+                    }
+                }
                 // LinkRef
                 Node::Text(t) if t.value.contains("][") => {
                     v.extend(handle_broken_ref(req_uri, state))
@@ -85,6 +90,20 @@ fn handle_broken_link(state: &State, link: &Link) -> Vec<BrokenLink> {
         Some(_) => {}
     };
     broken_links
+}
+
+fn handle_broken_heading_link(link: &Link, req_uri: &Url, state: &State) -> Option<BrokenLink> {
+    let found = state
+        .ast_for_uri(req_uri)
+        .and_then(|ast| find_heading_for_url(ast, &link.url));
+    if let (Some(pos), None) = (&link.position, found) {
+        Some(BrokenLink {
+            range: range_from_position(pos),
+            message: format!("Link to non-existent heading `{}`", &link.url),
+        })
+    } else {
+        None
+    }
 }
 
 fn handle_broken_ref(req_uri: &Url, state: &State) -> Vec<BrokenLink> {

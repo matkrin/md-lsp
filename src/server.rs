@@ -4,7 +4,8 @@ use lsp_types::{
     Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
     DidOpenTextDocumentParams, DocumentFormattingParams, DocumentSymbolParams,
     GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams, Location, MarkupContent,
-    MarkupKind, Position, PublishDiagnosticsParams, Range, TextEdit, Url,
+    MarkupKind, Position, PrepareRenameResponse, PublishDiagnosticsParams, Range, RenameParams,
+    TextDocumentPositionParams, TextEdit, Url,
 };
 use markdown::mdast::Node;
 
@@ -16,6 +17,7 @@ use crate::diagnostics::check_links;
 use crate::formatting::formatting;
 use crate::hover::{hov_handle_footnote_reference, hov_handle_link, hov_handle_link_reference};
 use crate::references::{handle_definition, handle_footnote_definition, handle_heading};
+use crate::rename::{find_renameable_for_position, rename};
 use crate::state::State;
 use crate::symbols::{document_symbols, workspace_symbols};
 
@@ -44,6 +46,10 @@ impl Server {
                         }
                         "workspace/symbol" => self.handle_workspace_symbol(req, &mut state)?,
                         "textDocument/formatting" => self.handle_formatting(req, &mut state)?,
+                        "textDocument/prepareRename" => {
+                            self.handle_prepare_rename(req, &mut state)?
+                        }
+                        "textDocument/rename" => self.handle_rename(req, &mut state)?,
                         "textDocument/diagnostic" => {
                             log::info!("DIAGNOSTIC REQUEST: {:?}", req);
                         }
@@ -318,6 +324,47 @@ impl Server {
 
         self.connection.sender.send(Message::Response(resp))?;
 
+        Ok(())
+    }
+
+    /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_prepareRename
+    fn handle_prepare_rename(&self, req: lsp_server::Request, state: &State) -> Result<()> {
+        log::info!("PREPARE RENAME REQUEST : {:?}", req);
+        let params: TextDocumentPositionParams = serde_json::from_value(req.params)?;
+        log::info!("PARAMS: {:?}", params);
+        let req_uri = params.text_document.uri;
+        let position = params.position;
+        let result = state
+            .ast_for_uri(&req_uri)
+            .and_then(|ast| find_renameable_for_position(ast, &position))
+            .and_then(|node| {
+                log::info!("FOUND NODE: {:?}", node);
+                rename(node)
+            })
+            .and_then(|it| serde_json::to_value(it).ok());
+
+        let resp = Response {
+            id: req.id,
+            result,
+            error: None,
+        };
+
+        self.connection.sender.send(Message::Response(resp))?;
+
+        Ok(())
+    }
+
+    /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_rename
+    fn handle_rename(&self, req: lsp_server::Request, state: &State) -> Result<()> {
+        log::info!("RENAME REQUEST : {:?}", req);
+        let params: RenameParams = serde_json::from_value(req.params)?;
+        let new_name = params.new_name;
+        let text_doc_position = params.text_document_position;
+        let position = text_doc_position.position;
+        let path = text_doc_position.text_document.uri.path();
+        log::info!("NEW NAME : {:?}", new_name);
+        log::info!("DOC POSITION : {:?}", position);
+        log::info!("PATH : {:?}", path);
         Ok(())
     }
 }

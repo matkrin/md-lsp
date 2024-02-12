@@ -1,4 +1,4 @@
-use lsp_types::Range;
+use lsp_types::{Position, Range};
 use markdown::mdast::{
     Definition, FootnoteDefinition, FootnoteReference, Heading, Link, LinkReference, Node, Text,
 };
@@ -30,8 +30,8 @@ pub fn find_link_for_position(node: &Node, line: u32, character: u32) -> Option<
             if let Some(pos) = position {
                 if (line + 1) as usize >= pos.start.line
                     && (line + 1) as usize <= pos.end.line
-                    && ((character + 1) as usize) >= pos.start.column
-                    && ((character + 1) as usize) <= pos.end.column
+                    && (character + 1) as usize >= pos.start.column
+                    && (character + 1) as usize <= pos.end.column
                 {
                     return Some(node);
                 }
@@ -51,8 +51,8 @@ pub fn find_definition_for_position(node: &Node, line: u32, character: u32) -> O
             if let Some(pos) = position {
                 if (line + 1) as usize >= pos.start.line
                     && (line + 1) as usize <= pos.end.line
-                    && ((character + 1) as usize) >= pos.start.column
-                // && ((character + 1) as usize) <= pos.end.column
+                    && (character + 1) as usize >= pos.start.column
+                // && (character + 1) as usize <= pos.end.column
                 {
                     return Some(node);
                 }

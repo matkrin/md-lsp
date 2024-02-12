@@ -5,6 +5,7 @@ pub mod formatting;
 pub mod hover;
 pub mod links;
 pub mod references;
+pub mod rename;
 pub mod server;
 pub mod state;
 pub mod symbols;

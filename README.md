@@ -31,8 +31,17 @@
 
 * [x] document symbols
 * [x] workspace symbols
-* [x] formatting
+* [.] formatting:
+    - [x] entire buffer
+    - [ ] ranged
+
 * [ ] rename
+    - [ ] Heading
+    - [ ] LinkReference
+    - [ ] Definition
+    - [ ] FootnoteReference
+    - [ ] FootnoteDefinition
+
 * [ ] completion
 * [ ] code actions
 

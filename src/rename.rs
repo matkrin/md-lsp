@@ -1,83 +1,83 @@
-use lsp_types::{Position, PrepareRenameResponse, Range};
+use lsp_types::{Position, PrepareRenameResponse, Range, Url};
 use markdown::mdast::{
     Definition, FootnoteDefinition, FootnoteReference, Heading, LinkReference, Node, Text,
 };
 
-use crate::traverse_ast;
+use crate::{state::State, traverse_ast};
 
-pub fn prepare_rename(node: &Node) -> Option<PrepareRenameResponse> {
+pub fn prepare_rename(
+    req_uri: &Url,
+    req_pos: &Position,
+    state: &State,
+) -> Option<PrepareRenameResponse> {
+    state
+        .ast_for_uri(req_uri)
+        .and_then(|ast| find_renameable_for_position(ast, req_pos))
+        .and_then(|node| prepare_rename_range(node).map(PrepareRenameResponse::Range))
+}
+
+fn prepare_rename_range(node: &Node) -> Option<Range> {
     match node {
-        Node::Heading(_) => {
-            log::info!("RENAME NODE: {:?}", node);
-            Some(PrepareRenameResponse::DefaultBehavior {
-                default_behavior: true,
+        Node::Heading(Heading { children, .. }) => {
+            let text = get_text_child(children)?;
+            text.position.as_ref().map(|pos| {
+                let start_line = pos.start.line - 1;
+                let start_char = pos.start.column - 1;
+                let end_line = pos.end.line - 1;
+                let end_char = pos.end.column;
+                rename_range(start_line, end_line, start_char, end_char)
             })
         }
         Node::LinkReference(LinkReference {
             position, children, ..
         }) => {
-            let text = get_link_ref_text(children)?;
+            let text = get_text_child(children)?;
             position.as_ref().map(|link_ref_pos| {
                 let start_line = link_ref_pos.start.line - 1;
                 let start_char = link_ref_pos.start.column + text.value.len() + 2;
                 let end_line = link_ref_pos.end.line - 1;
                 let end_char = link_ref_pos.end.column - 2;
-                let range = rename_range(start_line, end_line, start_char, end_char);
-                PrepareRenameResponse::Range(range)
+                rename_range(start_line, end_line, start_char, end_char)
             })
         }
         Node::Definition(Definition {
             position,
             identifier,
             ..
-        }) => {
-            log::info!("RENAME NODE: {:?}", node);
-            position.as_ref().map(|def_pos| {
-                let start_line = def_pos.start.line - 1;
-                let start_char = def_pos.start.column;
-                let end_line = def_pos.end.line - 1;
-                let end_char = def_pos.start.column + identifier.len();
-                let range = rename_range(start_line, end_line, start_char, end_char);
-                PrepareRenameResponse::Range(range)
-            })
-        }
+        }) => position.as_ref().map(|def_pos| {
+            let start_line = def_pos.start.line - 1;
+            let start_char = def_pos.start.column;
+            let end_line = def_pos.end.line - 1;
+            let end_char = def_pos.start.column + identifier.len();
+            rename_range(start_line, end_line, start_char, end_char)
+        }),
         Node::FootnoteReference(FootnoteReference {
             position,
             identifier,
             ..
-        }) => {
-            log::info!("RENAME NODE: {:?}", node);
-
-            position.as_ref().map(|foot_ref_pos| {
-                let start_line = foot_ref_pos.start.line - 1;
-                let start_char = foot_ref_pos.start.column + 1;
-                let end_line = foot_ref_pos.end.line - 1;
-                let end_char = foot_ref_pos.start.column + identifier.len() + 1;
-                let range = rename_range(start_line, end_line, start_char, end_char);
-                PrepareRenameResponse::Range(range)
-            })
-        }
+        }) => position.as_ref().map(|foot_ref_pos| {
+            let start_line = foot_ref_pos.start.line - 1;
+            let start_char = foot_ref_pos.start.column + 1;
+            let end_line = foot_ref_pos.end.line - 1;
+            let end_char = foot_ref_pos.start.column + identifier.len() + 1;
+            rename_range(start_line, end_line, start_char, end_char)
+        }),
         Node::FootnoteDefinition(FootnoteDefinition {
             position,
             identifier,
             ..
-        }) => {
-            log::info!("RENAME NODE: {:?}", node);
-
-            position.as_ref().map(|foot_def_pos| {
-                let start_line = foot_def_pos.start.line - 1;
-                let start_char = foot_def_pos.start.column + 1;
-                let end_line = foot_def_pos.start.line - 1;
-                let end_char = foot_def_pos.start.column + identifier.len() + 1;
-                let range = rename_range(start_line, end_line, start_char, end_char);
-                PrepareRenameResponse::Range(range)
-            })
-        }
+        }) => position.as_ref().map(|foot_def_pos| {
+            let start_line = foot_def_pos.start.line - 1;
+            let start_char = foot_def_pos.start.column + 1;
+            let end_line = foot_def_pos.start.line - 1;
+            let end_char = foot_def_pos.start.column + identifier.len() + 1;
+            rename_range(start_line, end_line, start_char, end_char)
+        }),
         _ => None,
     }
 }
 
-pub fn find_renameable_for_position<'a>(node: &'a Node, req_pos: &Position) -> Option<&'a Node> {
+fn find_renameable_for_position<'a>(node: &'a Node, req_pos: &Position) -> Option<&'a Node> {
     match node {
         Node::Heading(Heading { position, .. })
         | Node::LinkReference(LinkReference { position, .. })
@@ -100,7 +100,7 @@ pub fn find_renameable_for_position<'a>(node: &'a Node, req_pos: &Position) -> O
     traverse_ast!(node, find_renameable_for_position, req_pos)
 }
 
-fn get_link_ref_text(children: &Vec<Node>) -> Option<&Text> {
+fn get_text_child(children: &Vec<Node>) -> Option<&Text> {
     for child in children {
         if let Node::Text(t) = child {
             return Some(t);

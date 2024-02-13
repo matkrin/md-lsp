@@ -17,7 +17,7 @@ use crate::diagnostics::check_links;
 use crate::formatting::formatting;
 use crate::hover::{hov_handle_footnote_reference, hov_handle_link, hov_handle_link_reference};
 use crate::references::{handle_definition, handle_footnote_definition, handle_heading};
-use crate::rename::{find_renameable_for_position, prepare_rename};
+use crate::rename::prepare_rename;
 use crate::state::State;
 use crate::symbols::{document_symbols, workspace_symbols};
 
@@ -329,18 +329,10 @@ impl Server {
 
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_prepareRename
     fn handle_prepare_rename(&self, req: lsp_server::Request, state: &State) -> Result<()> {
-        log::info!("PREPARE RENAME REQUEST : {:?}", req);
         let params: TextDocumentPositionParams = serde_json::from_value(req.params)?;
-        log::info!("PARAMS: {:?}", params);
         let req_uri = params.text_document.uri;
-        let position = params.position;
-        let result = state
-            .ast_for_uri(&req_uri)
-            .and_then(|ast| find_renameable_for_position(ast, &position))
-            .and_then(|node| {
-                log::info!("FOUND NODE: {:?}", node);
-                prepare_rename(node)
-            })
+        let req_position = params.position;
+        let result = prepare_rename(&req_uri, &req_position, state)
             .and_then(|it| serde_json::to_value(it).ok());
 
         let resp = Response {

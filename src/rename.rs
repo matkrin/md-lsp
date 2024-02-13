@@ -57,8 +57,23 @@ pub fn rename(node: &Node) -> Option<PrepareRenameResponse> {
                 }));
             }
         }
-        Node::FootnoteReference(FootnoteReference { position, .. }) => {
+        Node::FootnoteReference(FootnoteReference { position, identifier, .. }) => {
             log::info!("RENAME NODE: {:?}", node);
+
+            if let Some(foot_ref_pos) = position {
+                let pos_start = Position {
+                    line: (foot_ref_pos.start.line - 1) as u32,
+                    character: (foot_ref_pos.start.column + 1) as u32,
+                };
+                let pos_end = Position {
+                    line: (foot_ref_pos.end.line - 1) as u32,
+                    character: (foot_ref_pos.start.column + identifier.len() + 1) as u32,
+                };
+                return Some(PrepareRenameResponse::Range(Range {
+                    start: pos_start,
+                    end: pos_end,
+                }));
+            }
             return Some(PrepareRenameResponse::DefaultBehavior {
                 default_behavior: true,
             });

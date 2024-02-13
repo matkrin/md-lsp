@@ -5,36 +5,26 @@ use markdown::mdast::{
 
 use crate::traverse_ast;
 
-pub fn rename(node: &Node) -> Option<PrepareRenameResponse> {
+pub fn prepare_rename(node: &Node) -> Option<PrepareRenameResponse> {
     match node {
-        Node::Heading(Heading { position, .. }) => {
+        Node::Heading(_) => {
             log::info!("RENAME NODE: {:?}", node);
-            return Some(PrepareRenameResponse::DefaultBehavior {
+            Some(PrepareRenameResponse::DefaultBehavior {
                 default_behavior: true,
-            });
+            })
         }
         Node::LinkReference(LinkReference {
-            position,
-            children,
-            identifier,
-            ..
+            position, children, ..
         }) => {
             let text = get_link_ref_text(children)?;
-            if let (Some(link_ref_pos), Some(text_pos)) = (position, &text.position) {
-                let len_text_value = text.value.len();
-                let pos_start = Position {
-                    line: (link_ref_pos.start.line - 1) as u32,
-                    character: (link_ref_pos.start.column + len_text_value + 2) as u32,
-                };
-                let pos_end = Position {
-                    line: (link_ref_pos.end.line - 1) as u32,
-                    character: (link_ref_pos.end.column - 2) as u32,
-                };
-                return Some(PrepareRenameResponse::Range(Range {
-                    start: pos_start,
-                    end: pos_end,
-                }));
-            }
+            position.as_ref().map(|link_ref_pos| {
+                let start_line = link_ref_pos.start.line - 1;
+                let start_char = link_ref_pos.start.column + text.value.len() + 2;
+                let end_line = link_ref_pos.end.line - 1;
+                let end_char = link_ref_pos.end.column - 2;
+                let range = rename_range(start_line, end_line, start_char, end_char);
+                PrepareRenameResponse::Range(range)
+            })
         }
         Node::Definition(Definition {
             position,
@@ -42,52 +32,49 @@ pub fn rename(node: &Node) -> Option<PrepareRenameResponse> {
             ..
         }) => {
             log::info!("RENAME NODE: {:?}", node);
-            if let Some(def_pos) = position {
-                let pos_start = Position {
-                    line: (def_pos.start.line - 1) as u32,
-                    character: (def_pos.start.column) as u32,
-                };
-                let pos_end = Position {
-                    line: (def_pos.end.line - 1) as u32,
-                    character: (def_pos.start.column + identifier.len()) as u32,
-                };
-                return Some(PrepareRenameResponse::Range(Range {
-                    start: pos_start,
-                    end: pos_end,
-                }));
-            }
+            position.as_ref().map(|def_pos| {
+                let start_line = def_pos.start.line - 1;
+                let start_char = def_pos.start.column;
+                let end_line = def_pos.end.line - 1;
+                let end_char = def_pos.start.column + identifier.len();
+                let range = rename_range(start_line, end_line, start_char, end_char);
+                PrepareRenameResponse::Range(range)
+            })
         }
-        Node::FootnoteReference(FootnoteReference { position, identifier, .. }) => {
+        Node::FootnoteReference(FootnoteReference {
+            position,
+            identifier,
+            ..
+        }) => {
             log::info!("RENAME NODE: {:?}", node);
 
-            if let Some(foot_ref_pos) = position {
-                let pos_start = Position {
-                    line: (foot_ref_pos.start.line - 1) as u32,
-                    character: (foot_ref_pos.start.column + 1) as u32,
-                };
-                let pos_end = Position {
-                    line: (foot_ref_pos.end.line - 1) as u32,
-                    character: (foot_ref_pos.start.column + identifier.len() + 1) as u32,
-                };
-                return Some(PrepareRenameResponse::Range(Range {
-                    start: pos_start,
-                    end: pos_end,
-                }));
-            }
-            return Some(PrepareRenameResponse::DefaultBehavior {
-                default_behavior: true,
-            });
+            position.as_ref().map(|foot_ref_pos| {
+                let start_line = foot_ref_pos.start.line - 1;
+                let start_char = foot_ref_pos.start.column + 1;
+                let end_line = foot_ref_pos.end.line - 1;
+                let end_char = foot_ref_pos.start.column + identifier.len() + 1;
+                let range = rename_range(start_line, end_line, start_char, end_char);
+                PrepareRenameResponse::Range(range)
+            })
         }
-        Node::FootnoteDefinition(FootnoteDefinition { position, .. }) => {
+        Node::FootnoteDefinition(FootnoteDefinition {
+            position,
+            identifier,
+            ..
+        }) => {
             log::info!("RENAME NODE: {:?}", node);
-            return Some(PrepareRenameResponse::DefaultBehavior {
-                default_behavior: true,
-            });
+
+            position.as_ref().map(|foot_def_pos| {
+                let start_line = foot_def_pos.start.line - 1;
+                let start_char = foot_def_pos.start.column + 1;
+                let end_line = foot_def_pos.start.line - 1;
+                let end_char = foot_def_pos.start.column + identifier.len() + 1;
+                let range = rename_range(start_line, end_line, start_char, end_char);
+                PrepareRenameResponse::Range(range)
+            })
         }
-        _ => {}
+        _ => None,
     }
-
-    traverse_ast!(node, rename)
 }
 
 pub fn find_renameable_for_position<'a>(node: &'a Node, req_pos: &Position) -> Option<&'a Node> {
@@ -120,4 +107,16 @@ fn get_link_ref_text(children: &Vec<Node>) -> Option<&Text> {
         }
     }
     None
+}
+
+fn rename_range(start_line: usize, end_line: usize, start_char: usize, end_char: usize) -> Range {
+    let start = Position {
+        line: start_line as u32,
+        character: start_char as u32,
+    };
+    let end = Position {
+        line: end_line as u32,
+        character: end_char as u32,
+    };
+    Range { start, end }
 }

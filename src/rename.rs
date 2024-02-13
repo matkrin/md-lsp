@@ -36,11 +36,26 @@ pub fn rename(node: &Node) -> Option<PrepareRenameResponse> {
                 }));
             }
         }
-        Node::Definition(Definition { position, .. }) => {
+        Node::Definition(Definition {
+            position,
+            identifier,
+            ..
+        }) => {
             log::info!("RENAME NODE: {:?}", node);
-            return Some(PrepareRenameResponse::DefaultBehavior {
-                default_behavior: true,
-            });
+            if let Some(def_pos) = position {
+                let pos_start = Position {
+                    line: (def_pos.start.line - 1) as u32,
+                    character: (def_pos.start.column) as u32,
+                };
+                let pos_end = Position {
+                    line: (def_pos.end.line - 1) as u32,
+                    character: (def_pos.start.column + identifier.len()) as u32,
+                };
+                return Some(PrepareRenameResponse::Range(Range {
+                    start: pos_start,
+                    end: pos_end,
+                }));
+            }
         }
         Node::FootnoteReference(FootnoteReference { position, .. }) => {
             log::info!("RENAME NODE: {:?}", node);

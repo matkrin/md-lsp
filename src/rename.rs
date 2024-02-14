@@ -1,9 +1,11 @@
-use lsp_types::{Position, PrepareRenameResponse, Range, Url};
+use std::collections::HashMap;
+
+use lsp_types::{Position, PrepareRenameResponse, Range, TextEdit, Url};
 use markdown::mdast::{
     Definition, FootnoteDefinition, FootnoteReference, Heading, LinkReference, Node, Text,
 };
 
-use crate::{state::State, traverse_ast};
+use crate::{references::get_heading_refs, state::State, traverse_ast};
 
 pub fn prepare_rename(
     req_uri: &Url,
@@ -14,6 +16,45 @@ pub fn prepare_rename(
         .ast_for_uri(req_uri)
         .and_then(|ast| find_renameable_for_position(ast, req_pos))
         .and_then(|node| prepare_rename_range(node).map(PrepareRenameResponse::Range))
+}
+
+pub fn rename(
+    new_name: &str,
+    req_uri: &Url,
+    req_pos: &Position,
+    state: &State,
+) -> Option<HashMap<Url, Vec<TextEdit>>> {
+    let node = state
+        .ast_for_uri(req_uri)
+        .and_then(|ast| find_renameable_for_position(ast, req_pos));
+
+    if let Some(node) = node {
+        match node {
+            Node::Heading(heading) => {
+                let mut heading_refs = Vec::new();
+                get_heading_refs(&mut heading_refs, req_uri, heading, state);
+                let changes: HashMap<Url, Vec<TextEdit>> =
+                    heading_refs
+                        .into_iter()
+                        .fold(HashMap::new(), |mut acc, found_ref| {
+                            let text_edit = TextEdit {
+                                range: found_ref.range,
+                                new_text: new_name.to_string(),
+                            };
+                            acc.entry(found_ref.file_url).or_default().push(text_edit);
+                            acc
+                        });
+                Some(changes)
+            }
+            // Node::LinkReference(LinkReference { position, .. }) => None,
+            // Node::Definition(Definition { position, .. }) => None,
+            // Node::FootnoteReference(FootnoteReference { position, .. }) => None,
+            // Node::FootnoteDefinition(FootnoteDefinition { position, .. }) => None,
+            _ => unreachable!(),
+        }
+    } else {
+        None
+    }
 }
 
 fn prepare_rename_range(node: &Node) -> Option<Range> {

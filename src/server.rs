@@ -5,7 +5,7 @@ use lsp_types::{
     DidOpenTextDocumentParams, DocumentFormattingParams, DocumentSymbolParams,
     GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams, Location, MarkupContent,
     MarkupKind, Position, PrepareRenameResponse, PublishDiagnosticsParams, Range, RenameParams,
-    TextDocumentPositionParams, TextEdit, Url,
+    TextDocumentPositionParams, TextEdit, Url, WorkspaceEdit,
 };
 use markdown::mdast::Node;
 
@@ -17,7 +17,7 @@ use crate::diagnostics::check_links;
 use crate::formatting::formatting;
 use crate::hover::{hov_handle_footnote_reference, hov_handle_link, hov_handle_link_reference};
 use crate::references::{handle_definition, handle_footnote_definition, handle_heading};
-use crate::rename::prepare_rename;
+use crate::rename::{prepare_rename, rename};
 use crate::state::State;
 use crate::symbols::{document_symbols, workspace_symbols};
 
@@ -350,13 +350,27 @@ impl Server {
     fn handle_rename(&self, req: lsp_server::Request, state: &State) -> Result<()> {
         log::info!("RENAME REQUEST : {:?}", req);
         let params: RenameParams = serde_json::from_value(req.params)?;
+        let req_uri = params.text_document_position.text_document.uri;
         let new_name = params.new_name;
-        let text_doc_position = params.text_document_position;
-        let position = text_doc_position.position;
-        let path = text_doc_position.text_document.uri.path();
+        let req_pos = params.text_document_position.position;
+        // let path = text_doc_position.text_document.uri.path();
         log::info!("NEW NAME : {:?}", new_name);
-        log::info!("DOC POSITION : {:?}", position);
-        log::info!("PATH : {:?}", path);
+        log::info!("DOC POSITION : {:?}", req_uri);
+
+        let result = rename(&new_name, &req_uri, &req_pos, state)
+            .map(|changes| WorkspaceEdit {
+                changes: Some(changes),
+                document_changes: None,
+                change_annotations: None,
+            })
+            .and_then(|it| serde_json::to_value(it).ok());
+        let resp = Response {
+            id: req.id,
+            result,
+            error: None,
+        };
+
+        self.connection.sender.send(Message::Response(resp))?;
         Ok(())
     }
 }

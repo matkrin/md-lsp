@@ -62,6 +62,12 @@ pub fn get_heading_refs(
     }
 }
 
+// enum FoundRef {
+//     FileLink,
+//     InternalHeadingLink,
+//     ExternalHeadingLink,
+// }
+
 fn find_links_in(
     ast: &Node,
     heading_text: &str,
@@ -74,6 +80,7 @@ fn find_links_in(
     if let (Some(children), Some(f_name)) = (ast.children(), file_name) {
         for child in children {
             match child {
+                // Link to a file
                 Node::Link(link) if link.url.as_str() == f_name => {
                     if let Some(pos) = &link.position {
                         heading_refs.push(FoundRef {
@@ -82,7 +89,9 @@ fn find_links_in(
                         })
                     }
                 }
+                // Link to heading
                 Node::Link(link) => match (&link.position, link.url.split_once('#')) {
+                    // Link to internal heading
                     (Some(pos), Some(("", ht))) => {
                         if heading_text == ht {
                             heading_refs.push(FoundRef {
@@ -91,6 +100,7 @@ fn find_links_in(
                             })
                         }
                     }
+                    // Link to heading in other file
                     (Some(pos), Some((file_name, ht))) => {
                         if heading_text == ht && f_name == file_name {
                             heading_refs.push(FoundRef {

@@ -1,39 +1,55 @@
 use lsp_types::{Range, Url};
-use markdown::mdast::{Definition, FootnoteDefinition, Heading, Node, Text};
+use markdown::mdast::{Definition, FootnoteDefinition, Heading, Link, Node, Text};
 
 use crate::ast::find_link_references_for_identifier;
 use crate::{
     ast::find_footnote_references_for_identifier, definition::range_from_position, state::State,
 };
 
-pub struct FoundRef {
-    pub file_url: Url,
+#[derive(Debug)]
+pub struct FoundRef<'a> {
+    pub file_url: &'a Url,
     pub range: Range,
 }
 
-pub fn handle_heading(heading: &Heading, req_uri: &Url, state: &State) -> Vec<FoundRef> {
-    let mut heading_refs = Vec::new();
-    get_heading_refs(&mut heading_refs, req_uri, heading, state);
-    heading_refs
+impl<'a> FoundRef<'a> {
+    fn from_found_link(found_link: &FoundLink) -> Option<Self> {
+        match found_link {
+            FoundLink::File { link, uri }
+            | FoundLink::InternalHeading { link, uri }
+            | FoundLink::ExternalHeading { link, uri } => link.position.as_ref().map(|pos| Self {
+                file_url: uri,
+                range: range_from_position(pos),
+            }),
+        }
+    }
 }
 
-pub fn handle_definition(req_ast: &Node, req_uri: &Url, definition: &Definition) -> Vec<FoundRef> {
+pub fn handle_heading<'a>(heading: &Heading, req_uri: &'a Url, state: &State) -> Vec<FoundRef<'a>> {
+    get_heading_refs(req_uri, heading, state)
+}
+
+pub fn handle_definition<'a>(
+    req_ast: &Node,
+    req_uri: &'a Url,
+    definition: &Definition,
+) -> Vec<FoundRef<'a>> {
     let mut link_ranges = Vec::new();
     find_link_references_for_identifier(req_ast, &definition.identifier, &mut link_ranges);
     link_ranges
         .into_iter()
         .map(|lr| FoundRef {
-            file_url: req_uri.clone(),
+            file_url: req_uri,
             range: lr,
         })
         .collect()
 }
 
-pub fn handle_footnote_definition(
+pub fn handle_footnote_definition<'a>(
     req_ast: &Node,
-    req_uri: &Url,
+    req_uri: &'a Url,
     fn_definition: &FootnoteDefinition,
-) -> Vec<FoundRef> {
+) -> Vec<FoundRef<'a>> {
     let mut footnote_ranges = Vec::new();
     find_footnote_references_for_identifier(
         req_ast,
@@ -43,76 +59,69 @@ pub fn handle_footnote_definition(
     footnote_ranges
         .into_iter()
         .map(|fnr| FoundRef {
-            file_url: req_uri.clone(),
+            file_url: req_uri,
             range: fnr,
         })
         .collect()
 }
 
-pub fn get_heading_refs(
-    heading_refs: &mut Vec<FoundRef>,
-    req_uri: &Url,
+pub fn get_heading_refs<'a>(
+    req_uri: &'a Url,
     heading: &Heading,
     state: &State,
-) {
+) -> Vec<FoundRef<'a>> {
+    let mut heading_refs = Vec::new();
     if let Some(Node::Text(Text { value, .. })) = heading.children.first() {
         for (url, md_file) in state.md_files.iter() {
-            find_links_in(&md_file.ast, value, req_uri, url, heading_refs)
+            let refs = find_links_in(&md_file.ast, value, req_uri);
+            log::info!("REFS: {:?}", refs);
+            let refs = refs
+                .iter()
+                .filter_map(|found_link| FoundRef::from_found_link(found_link));
+            heading_refs.extend(refs);
         }
     }
+    log::info!("HEADING REFS: {:?}", heading_refs);
+    heading_refs
 }
 
-// enum FoundRef {
-//     FileLink,
-//     InternalHeadingLink,
-//     ExternalHeadingLink,
-// }
+#[derive(Debug)]
+enum FoundLink<'a> {
+    File { link: &'a Link, uri: &'a Url },
+    InternalHeading { link: &'a Link, uri: &'a Url },
+    ExternalHeading { link: &'a Link, uri: &'a Url },
+}
 
-fn find_links_in(
-    ast: &Node,
-    heading_text: &str,
-    req_uri: &Url,
-    target_url: &Url,
-    heading_refs: &mut Vec<FoundRef>,
-) {
-    let file_path = req_uri.to_file_path().unwrap();
+fn find_links_in<'a>(ast: &'a Node, heading_text: &str, uri: &'a Url) -> Vec<FoundLink<'a>> {
+    let file_path = uri.to_file_path().unwrap();
     let file_name = file_path.file_stem();
+    let mut heading_refs = Vec::new();
     if let (Some(children), Some(f_name)) = (ast.children(), file_name) {
         for child in children {
+            heading_refs.extend(find_links_in(child, heading_text, uri));
             match child {
                 // Link to a file
                 Node::Link(link) if link.url.as_str() == f_name => {
-                    if let Some(pos) = &link.position {
-                        heading_refs.push(FoundRef {
-                            file_url: target_url.clone(),
-                            range: range_from_position(pos),
-                        })
-                    }
+                    log::info!("LINK {:?}", link);
+                    heading_refs.push(FoundLink::File { link, uri });
                 }
                 // Link to heading
-                Node::Link(link) => match (&link.position, link.url.split_once('#')) {
+                Node::Link(link) => match link.url.split_once('#') {
                     // Link to internal heading
-                    (Some(pos), Some(("", ht))) => {
-                        if heading_text == ht {
-                            heading_refs.push(FoundRef {
-                                file_url: req_uri.clone(),
-                                range: range_from_position(pos),
-                            })
-                        }
+                    Some(("", ht)) if heading_text == ht => {
+                        log::info!("LINK {:?}", link);
+                        heading_refs.push(FoundLink::InternalHeading { link, uri });
                     }
                     // Link to heading in other file
-                    (Some(pos), Some((file_name, ht))) => {
-                        if heading_text == ht && f_name == file_name {
-                            heading_refs.push(FoundRef {
-                                file_url: target_url.clone(),
-                                range: range_from_position(pos),
-                            })
-                        }
+                    Some((file_name, ht)) if heading_text == ht && f_name == file_name => {
+                        log::info!("LINK {:?}", link);
+                        heading_refs.push(FoundLink::ExternalHeading { link, uri });
                     }
-                    _ => (),
+                    _ => {}
                 },
-                _ => find_links_in(child, heading_text, req_uri, target_url, heading_refs),
-            }
+                _ => {}
+            };
         }
     }
+    heading_refs
 }

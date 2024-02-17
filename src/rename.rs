@@ -5,7 +5,11 @@ use markdown::mdast::{
     Definition, FootnoteDefinition, FootnoteReference, Heading, LinkReference, Node, Text,
 };
 
-use crate::{references::get_heading_refs, state::State, traverse_ast};
+use crate::{
+    references::{get_heading_refs, FoundLink},
+    state::State,
+    traverse_ast,
+};
 
 pub fn prepare_rename(
     req_uri: &Url,
@@ -31,19 +35,15 @@ pub fn rename(
     if let Some(node) = node {
         match node {
             Node::Heading(heading) => {
-                let heading_refs = get_heading_refs(req_uri, heading, state);
-                let changes: HashMap<Url, Vec<TextEdit>> =
-                    heading_refs
-                        .into_iter()
-                        .fold(HashMap::new(), |mut acc, found_ref| {
-                            let text_edit = TextEdit {
-                                range: found_ref.range,
-                                new_text: new_name.to_string(),
-                            };
-                            acc.entry(found_ref.file_url.clone()).or_default().push(text_edit);
-                            acc
-                        });
-                Some(changes)
+                let mut ref_changes = rename_heading_refs(new_name, req_uri, heading, state);
+                if let Some(range) = heading_rename_range(heading) {
+                    let heading_change = TextEdit {
+                        range,
+                        new_text: new_name.to_string(),
+                    };
+                    ref_changes.entry(req_uri.clone()).or_default().push(heading_change);
+                }
+                Some(ref_changes)
             }
             Node::LinkReference(LinkReference { position, .. }) => None,
             Node::Definition(Definition { position, .. }) => None,
@@ -58,16 +58,7 @@ pub fn rename(
 
 fn prepare_rename_range(node: &Node) -> Option<Range> {
     match node {
-        Node::Heading(Heading { children, .. }) => {
-            let text = get_text_child(children)?;
-            text.position.as_ref().map(|pos| {
-                let start_line = pos.start.line - 1;
-                let start_char = pos.start.column - 1;
-                let end_line = pos.end.line - 1;
-                let end_char = pos.end.column;
-                rename_range(start_line, end_line, start_char, end_char)
-            })
-        }
+        Node::Heading(heading) => heading_rename_range(heading),
         Node::LinkReference(LinkReference {
             position, children, ..
         }) => {
@@ -117,6 +108,18 @@ fn prepare_rename_range(node: &Node) -> Option<Range> {
     }
 }
 
+fn heading_rename_range(heading: &Heading) -> Option<Range> {
+    let text = get_text_child(&heading.children)?;
+        text.position.as_ref().map(|pos| {
+            let start_line = pos.start.line - 1;
+            let start_char = pos.start.column - 1;
+            let end_line = pos.end.line - 1;
+            let end_char = pos.end.column;
+            rename_range(start_line, end_line, start_char, end_char)
+        })
+}
+
+
 fn find_renameable_for_position<'a>(node: &'a Node, req_pos: &Position) -> Option<&'a Node> {
     match node {
         Node::Heading(Heading { position, .. })
@@ -159,4 +162,46 @@ fn rename_range(start_line: usize, end_line: usize, start_char: usize, end_char:
         character: end_char as u32,
     };
     Range { start, end }
+}
+
+fn rename_heading_refs(
+    new_name: &str,
+    req_uri: &Url,
+    heading: &Heading,
+    state: &State,
+) -> HashMap<Url, Vec<TextEdit>> {
+    get_heading_refs(req_uri, heading, state).into_iter().fold(
+        HashMap::new(),
+        |mut acc, found_ref| match found_ref {
+            FoundLink::InternalHeading {
+                link,
+                uri,
+                heading_text,
+            }
+            | FoundLink::ExternalHeading {
+                link,
+                uri,
+                heading_text,
+            } => {
+                if let Some(pos) = &link.position {
+                    let start_line = pos.start.line - 1;
+                    let mut start_char = pos.end.column - 2 - heading_text.len();
+                    let end_line = pos.end.line - 1;
+                    let mut end_char = pos.end.column - 2;
+                    if let Some("wikilink") = link.title.as_deref() {
+                        start_char -= 1;
+                        end_char -= 1;
+                    }
+                    let range = rename_range(start_line, end_line, start_char, end_char);
+                    let text_edit = TextEdit {
+                        range,
+                        new_text: new_name.to_string(),
+                    };
+                    acc.entry(uri.clone()).or_default().push(text_edit);
+                }
+                acc
+            }
+            _ => acc,
+        },
+    )
 }

@@ -74,8 +74,10 @@ struct ExtractedWikiLink {
 
 impl ExtractedWikiLink {
     fn link_text_node(&self, start_line: usize) -> Node {
+        let value = "".to_string(); // TODO parse Wikilinks with `|` (everything before is value)
+        let value_len = value.len();
         let link_text = Text {
-            value: self.content.clone(),
+            value,
             position: Some(Position {
                 start: Point {
                     line: start_line + self.line_number,
@@ -84,8 +86,8 @@ impl ExtractedWikiLink {
                 },
                 end: Point {
                     line: start_line + self.line_number,
-                    column: self.start_position + self.content.len(),
-                    offset: self.start_position + self.content.len(),
+                    column: self.start_position + value_len,
+                    offset: self.start_position + value_len,
                 },
             }),
         };
@@ -110,7 +112,7 @@ impl ExtractedWikiLink {
                 },
             }),
             url: self.content.clone(),
-            title: Some(self.content.clone()),
+            title: Some("wikilink".to_string()),
         };
         Node::Link(link)
     }

@@ -30,26 +30,25 @@ pub fn rename(
 
     if let Some(node) = node {
         match node {
-            // Node::Heading(heading) => {
-            //     let mut heading_refs = Vec::new();
-            //     get_heading_refs(&mut heading_refs, req_uri, heading, state);
-            //     let changes: HashMap<Url, Vec<TextEdit>> =
-            //         heading_refs
-            //             .into_iter()
-            //             .fold(HashMap::new(), |mut acc, found_ref| {
-            //                 let text_edit = TextEdit {
-            //                     range: found_ref.range,
-            //                     new_text: new_name.to_string(),
-            //                 };
-            //                 acc.entry(found_ref.file_url).or_default().push(text_edit);
-            //                 acc
-            //             });
-            //     Some(changes)
-            // }
-            // Node::LinkReference(LinkReference { position, .. }) => None,
-            // Node::Definition(Definition { position, .. }) => None,
-            // Node::FootnoteReference(FootnoteReference { position, .. }) => None,
-            // Node::FootnoteDefinition(FootnoteDefinition { position, .. }) => None,
+            Node::Heading(heading) => {
+                let heading_refs = get_heading_refs(req_uri, heading, state);
+                let changes: HashMap<Url, Vec<TextEdit>> =
+                    heading_refs
+                        .into_iter()
+                        .fold(HashMap::new(), |mut acc, found_ref| {
+                            let text_edit = TextEdit {
+                                range: found_ref.range,
+                                new_text: new_name.to_string(),
+                            };
+                            acc.entry(found_ref.file_url.clone()).or_default().push(text_edit);
+                            acc
+                        });
+                Some(changes)
+            }
+            Node::LinkReference(LinkReference { position, .. }) => None,
+            Node::Definition(Definition { position, .. }) => None,
+            Node::FootnoteReference(FootnoteReference { position, .. }) => None,
+            Node::FootnoteDefinition(FootnoteDefinition { position, .. }) => None,
             _ => unreachable!(),
         }
     } else {

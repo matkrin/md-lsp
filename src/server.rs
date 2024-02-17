@@ -257,7 +257,7 @@ impl Server {
             found_links
                 .into_iter()
                 .map(|found_link| Location {
-                    uri: found_link.file_url,
+                    uri: found_link.file_url.clone(),
                     range: found_link.range,
                 })
                 .collect::<Vec<Location>>()

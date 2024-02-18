@@ -4,8 +4,8 @@ use lsp_types::{
     Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
     DidOpenTextDocumentParams, DocumentFormattingParams, DocumentSymbolParams,
     GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams, Location, MarkupContent,
-    MarkupKind, Position, PrepareRenameResponse, PublishDiagnosticsParams, Range, RenameParams,
-    TextDocumentPositionParams, TextEdit, Url, WorkspaceEdit,
+    MarkupKind, Position, PublishDiagnosticsParams, RenameParams,
+    TextDocumentPositionParams, Url, WorkspaceEdit,
 };
 use markdown::mdast::Node;
 

@@ -63,15 +63,13 @@ pub fn handle_footnote_definition<'a>(
     req_uri: &'a Url,
     fn_definition: &FootnoteDefinition,
 ) -> Option<Vec<FoundRef<'a>>> {
-    let footnote_refs = find_footnote_references_for_identifier( req_ast, &fn_definition.identifier);
+    let footnote_refs = find_footnote_references_for_identifier(req_ast, &fn_definition.identifier);
     footnote_refs
         .into_iter()
         .map(|footnote_ref| {
-            footnote_ref.position.as_ref().map(|pos| {
-                FoundRef {
-                    file_url: req_uri,
-                    range: range_from_position(pos),
-                }
+            footnote_ref.position.as_ref().map(|pos| FoundRef {
+                file_url: req_uri,
+                range: range_from_position(pos),
             })
         })
         .collect()
@@ -131,7 +129,10 @@ fn find_links_in<'a>(
             // Link to heading
             Node::Link(link) => match link.url.split_once('#') {
                 // Link to internal heading
-                Some(("", ht)) if heading_text == ht => {
+                Some(("", ht))
+                    if heading_text == ht
+                        || heading_text.to_lowercase().replace(' ', "-") == ht =>
+                {
                     heading_refs.push(FoundLink::InternalHeading {
                         link,
                         uri: target_uri,
@@ -139,7 +140,11 @@ fn find_links_in<'a>(
                     });
                 }
                 // Link to heading in other file
-                Some((file_name, ht)) if heading_text == ht && f_name == file_name => {
+                Some((file_name, ht))
+                    if (heading_text == ht
+                        || heading_text.to_lowercase().replace(' ', "-") == ht)
+                        && f_name == file_name =>
+                {
                     heading_refs.push(FoundLink::ExternalHeading {
                         link,
                         uri: target_uri,

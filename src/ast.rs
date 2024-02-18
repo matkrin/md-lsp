@@ -1,9 +1,7 @@
-use lsp_types::{Position, Range};
 use markdown::mdast::{
     Definition, FootnoteDefinition, FootnoteReference, Heading, Link, LinkReference, Node, Text,
 };
 
-use crate::definition::range_from_position;
 
 /// Recursive AST traversal
 #[macro_export]
@@ -23,7 +21,6 @@ macro_rules! traverse_ast {
 }
 
 pub fn find_link_for_position(node: &Node, line: u32, character: u32) -> Option<&Node> {
-    log::info!("NODE: {:?}", node);
     match node {
         Node::Link(Link { position, .. })
         | Node::LinkReference(LinkReference { position, .. })
@@ -68,7 +65,7 @@ pub fn find_definition_for_position(node: &Node, line: u32, character: u32) -> O
 pub fn find_heading_for_url<'a>(node: &'a Node, link_url: &str) -> Option<&'a Heading> {
     if let Node::Heading(heading) = node {
         if let Some(Node::Text(Text { value, .. })) = heading.children.first() {
-            if value == &link_url.replace('#', "") {
+            if value == &link_url.replace('#', "") || value.to_lowercase().replace(' ', "-") == link_url.replace('#', "") {
                 return Some(heading);
             }
         }

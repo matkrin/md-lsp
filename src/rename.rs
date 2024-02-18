@@ -10,7 +10,6 @@ use crate::{
         find_definition_for_identifier, find_foot_definition_for_identifier,
         find_footnote_references_for_identifier, find_link_references_for_identifier,
     },
-    definition,
     references::{get_heading_refs, FoundLink},
     state::State,
     traverse_ast,

@@ -20,10 +20,12 @@ where
         match found_link {
             FoundLink::File { link, uri }
             | FoundLink::InternalHeading { link, uri, .. }
-            | FoundLink::ExternalHeading { link, uri, .. } => link.position.as_ref().map(|pos| Self {
-                file_url: uri,
-                range: range_from_position(pos),
-            }),
+            | FoundLink::ExternalHeading { link, uri, .. } => {
+                link.position.as_ref().map(|pos| Self {
+                    file_url: uri,
+                    range: range_from_position(pos),
+                })
+            }
         }
     }
 }
@@ -43,14 +45,15 @@ pub fn handle_definition<'a>(
     req_ast: &Node,
     req_uri: &'a Url,
     definition: &Definition,
-) -> Vec<FoundRef<'a>> {
-    let mut link_ranges = Vec::new();
-    find_link_references_for_identifier(req_ast, &definition.identifier, &mut link_ranges);
-    link_ranges
+) -> Option<Vec<FoundRef<'a>>> {
+    let link_refs = find_link_references_for_identifier(req_ast, &definition.identifier);
+    link_refs
         .into_iter()
-        .map(|lr| FoundRef {
-            file_url: req_uri,
-            range: lr,
+        .map(|link_ref| {
+            link_ref.position.as_ref().map(|pos| FoundRef {
+                file_url: req_uri,
+                range: range_from_position(pos),
+            })
         })
         .collect()
 }
@@ -95,9 +98,17 @@ pub enum FoundLink<'a> {
     /// Link to a file
     File { link: &'a Link, uri: &'a Url },
     /// Link to internal heading
-    InternalHeading { link: &'a Link, uri: &'a Url, heading_text: &'a str },
+    InternalHeading {
+        link: &'a Link,
+        uri: &'a Url,
+        heading_text: &'a str,
+    },
     /// Link to external heading
-    ExternalHeading { link: &'a Link, uri: &'a Url, heading_text: &'a str },
+    ExternalHeading {
+        link: &'a Link,
+        uri: &'a Url,
+        heading_text: &'a str,
+    },
 }
 
 fn find_links_in<'a>(

@@ -244,7 +244,7 @@ impl Server {
         let found_links = match node {
             Some(n) => match n {
                 Node::Heading(h) => Some(handle_heading(h, &req_uri, state)),
-                Node::Definition(d) => Some(handle_definition(req_ast, &req_uri, d)),
+                Node::Definition(d) => handle_definition(req_ast, &req_uri, d),
                 Node::FootnoteDefinition(f) => {
                     Some(handle_footnote_definition(req_ast, &req_uri, f))
                 }

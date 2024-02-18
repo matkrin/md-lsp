@@ -6,6 +6,8 @@ use markdown::mdast::{
 };
 
 use crate::{
+    ast::find_definition_for_identifier,
+    definition,
     references::{get_heading_refs, FoundLink},
     state::State,
     traverse_ast,
@@ -41,11 +43,27 @@ pub fn rename(
                         range,
                         new_text: new_name.to_string(),
                     };
-                    ref_changes.entry(req_uri.clone()).or_default().push(heading_change);
+                    ref_changes
+                        .entry(req_uri.clone())
+                        .or_default()
+                        .push(heading_change);
                 }
                 Some(ref_changes)
             }
-            Node::LinkReference(LinkReference { position, .. }) => None,
+            Node::LinkReference(link_ref) => {
+                let mut def_changes = rename_definition(new_name, req_uri, link_ref, state);
+                if let Some(range) = link_ref_rename_range(link_ref) {
+                    let link_ref_change = TextEdit {
+                        range,
+                        new_text: new_name.to_string(),
+                    };
+                    def_changes
+                        .entry(req_uri.clone())
+                        .or_default()
+                        .push(link_ref_change);
+                }
+                Some(def_changes)
+            }
             Node::Definition(Definition { position, .. }) => None,
             Node::FootnoteReference(FootnoteReference { position, .. }) => None,
             Node::FootnoteDefinition(FootnoteDefinition { position, .. }) => None,
@@ -59,66 +77,65 @@ pub fn rename(
 fn prepare_rename_range(node: &Node) -> Option<Range> {
     match node {
         Node::Heading(heading) => heading_rename_range(heading),
-        Node::LinkReference(LinkReference {
-            position, children, ..
-        }) => {
-            let text = get_text_child(children)?;
-            position.as_ref().map(|link_ref_pos| {
-                let start_line = link_ref_pos.start.line - 1;
-                let start_char = link_ref_pos.start.column + text.value.len() + 2;
-                let end_line = link_ref_pos.end.line - 1;
-                let end_char = link_ref_pos.end.column - 2;
-                rename_range(start_line, end_line, start_char, end_char)
-            })
-        }
-        Node::Definition(Definition {
-            position,
-            identifier,
-            ..
-        }) => position.as_ref().map(|def_pos| {
-            let start_line = def_pos.start.line - 1;
-            let start_char = def_pos.start.column;
-            let end_line = def_pos.end.line - 1;
-            let end_char = def_pos.start.column + identifier.len();
-            rename_range(start_line, end_line, start_char, end_char)
-        }),
-        Node::FootnoteReference(FootnoteReference {
-            position,
-            identifier,
-            ..
-        }) => position.as_ref().map(|foot_ref_pos| {
-            let start_line = foot_ref_pos.start.line - 1;
-            let start_char = foot_ref_pos.start.column + 1;
-            let end_line = foot_ref_pos.end.line - 1;
-            let end_char = foot_ref_pos.start.column + identifier.len() + 1;
-            rename_range(start_line, end_line, start_char, end_char)
-        }),
-        Node::FootnoteDefinition(FootnoteDefinition {
-            position,
-            identifier,
-            ..
-        }) => position.as_ref().map(|foot_def_pos| {
-            let start_line = foot_def_pos.start.line - 1;
-            let start_char = foot_def_pos.start.column + 1;
-            let end_line = foot_def_pos.start.line - 1;
-            let end_char = foot_def_pos.start.column + identifier.len() + 1;
-            rename_range(start_line, end_line, start_char, end_char)
-        }),
+        Node::LinkReference(link_ref) => link_ref_rename_range(link_ref),
+        Node::Definition(definition) => definition_rename_range(definition),
+        Node::FootnoteReference(footnote_ref) => footnote_ref_rename_range(footnote_ref),
+        Node::FootnoteDefinition(footnote_def) => footnote_def_rename_range(footnote_def),
         _ => None,
     }
 }
 
 fn heading_rename_range(heading: &Heading) -> Option<Range> {
     let text = get_text_child(&heading.children)?;
-        text.position.as_ref().map(|pos| {
-            let start_line = pos.start.line - 1;
-            let start_char = pos.start.column - 1;
-            let end_line = pos.end.line - 1;
-            let end_char = pos.end.column;
-            rename_range(start_line, end_line, start_char, end_char)
-        })
+    text.position.as_ref().map(|pos| {
+        let start_line = pos.start.line - 1;
+        let start_char = pos.start.column - 1;
+        let end_line = pos.end.line - 1;
+        let end_char = pos.end.column;
+        rename_range(start_line, end_line, start_char, end_char)
+    })
 }
 
+fn link_ref_rename_range(link_ref: &LinkReference) -> Option<Range> {
+    let text = get_text_child(&link_ref.children)?;
+    link_ref.position.as_ref().map(|link_ref_pos| {
+        let start_line = link_ref_pos.start.line - 1;
+        let start_char = link_ref_pos.start.column + text.value.len() + 2;
+        let end_line = link_ref_pos.end.line - 1;
+        let end_char = link_ref_pos.end.column - 2;
+        rename_range(start_line, end_line, start_char, end_char)
+    })
+}
+
+fn definition_rename_range(def: &Definition) -> Option<Range> {
+    def.position.as_ref().map(|def_pos| {
+        let start_line = def_pos.start.line - 1;
+        let start_char = def_pos.start.column;
+        let end_line = def_pos.end.line - 1;
+        let end_char = def_pos.start.column + def.identifier.len();
+        rename_range(start_line, end_line, start_char, end_char)
+    })
+}
+
+fn footnote_ref_rename_range(footnote_ref: &FootnoteReference) -> Option<Range> {
+    footnote_ref.position.as_ref().map(|foot_ref_pos| {
+        let start_line = foot_ref_pos.start.line - 1;
+        let start_char = foot_ref_pos.start.column + 1;
+        let end_line = foot_ref_pos.end.line - 1;
+        let end_char = foot_ref_pos.start.column + footnote_ref.identifier.len() + 1;
+        rename_range(start_line, end_line, start_char, end_char)
+    })
+}
+
+fn footnote_def_rename_range(footnote_def: &FootnoteDefinition) -> Option<Range> {
+    footnote_def.position.as_ref().map(|foot_def_pos| {
+        let start_line = foot_def_pos.start.line - 1;
+        let start_char = foot_def_pos.start.column + 1;
+        let end_line = foot_def_pos.start.line - 1;
+        let end_char = foot_def_pos.start.column + footnote_def.identifier.len() + 1;
+        rename_range(start_line, end_line, start_char, end_char)
+    })
+}
 
 fn find_renameable_for_position<'a>(node: &'a Node, req_pos: &Position) -> Option<&'a Node> {
     match node {
@@ -164,6 +181,7 @@ fn rename_range(start_line: usize, end_line: usize, start_char: usize, end_char:
     Range { start, end }
 }
 
+/// Renaming of references to headings, these are contained in links
 fn rename_heading_refs(
     new_name: &str,
     req_uri: &Url,
@@ -204,4 +222,34 @@ fn rename_heading_refs(
             _ => acc,
         },
     )
+}
+
+// Definition { position: Some(123:1-123:34 (1519-1552)), url: "https://google.com", title: None, identifier: "google-link", label: Some("google-link") }
+/// There is always one definition, which is in same file as the request, I asume
+fn rename_definition(
+    new_name: &str,
+    req_uri: &Url,
+    link_ref: &LinkReference,
+    state: &State,
+) -> HashMap<Url, Vec<TextEdit>> {
+    let mut definition_changes = HashMap::new();
+    if let Some(ast) = state.ast_for_uri(req_uri) {
+        if let Some(definition) = find_definition_for_identifier(ast, &link_ref.identifier) {
+            if let Some(pos) = &definition.position {
+                let start_line = pos.start.line - 1;
+                let start_char = pos.start.column;
+                let end_line = pos.end.line - 1;
+                let end_char = pos.start.column + link_ref.identifier.len();
+                let range = rename_range(start_line, end_line, start_char, end_char);
+                let text_edit = TextEdit {
+                    range,
+                    new_text: new_name.to_string(),
+                };
+                definition_changes
+                    .entry(req_uri.clone())
+                    .or_insert(vec![text_edit]);
+            }
+        }
+    }
+    definition_changes
 }

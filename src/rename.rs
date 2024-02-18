@@ -6,7 +6,7 @@ use markdown::mdast::{
 };
 
 use crate::{
-    ast::find_definition_for_identifier,
+    ast::{find_definition_for_identifier, find_link_references_for_identifier},
     definition,
     references::{get_heading_refs, FoundLink},
     state::State,
@@ -52,19 +52,27 @@ pub fn rename(
             }
             Node::LinkReference(link_ref) => {
                 let mut def_changes = rename_definition(new_name, req_uri, link_ref, state);
-                if let Some(range) = link_ref_rename_range(link_ref) {
-                    let link_ref_change = TextEdit {
-                        range,
-                        new_text: new_name.to_string(),
-                    };
-                    def_changes
-                        .entry(req_uri.clone())
-                        .or_default()
-                        .push(link_ref_change);
-                }
+                let link_ref_changes = rename_link_refs(new_name, req_uri, &link_ref.identifier, state)?;
+                merge_maps(&mut def_changes, link_ref_changes);
                 Some(def_changes)
             }
-            Node::Definition(Definition { position, .. }) => None,
+            Node::Definition(definition) => {
+                rename_link_refs(new_name, req_uri, &definition.identifier, state).map(
+                    |mut link_ref_changes| {
+                        if let Some(range) = definition_rename_range(definition) {
+                            let definition_change = TextEdit {
+                                range,
+                                new_text: new_name.to_string(),
+                            };
+                            link_ref_changes
+                                .entry(req_uri.clone())
+                                .or_default()
+                                .push(definition_change);
+                        }
+                        link_ref_changes
+                    },
+                )
+            }
             Node::FootnoteReference(FootnoteReference { position, .. }) => None,
             Node::FootnoteDefinition(FootnoteDefinition { position, .. }) => None,
             _ => unreachable!(),
@@ -142,17 +150,28 @@ fn find_renameable_for_position<'a>(node: &'a Node, req_pos: &Position) -> Optio
         Node::Heading(Heading { position, .. })
         | Node::LinkReference(LinkReference { position, .. })
         | Node::Definition(Definition { position, .. })
-        | Node::FootnoteReference(FootnoteReference { position, .. })
-        | Node::FootnoteDefinition(FootnoteDefinition { position, .. }) => {
+        | Node::FootnoteReference(FootnoteReference { position, .. }) => {
             if let Some(pos) = position {
                 if (req_pos.line + 1) as usize >= pos.start.line
                     && (req_pos.line + 1) as usize <= pos.end.line
                     && (req_pos.character + 1) as usize >= pos.start.column
-                // && (req_pos.character + 1) as usize <= pos.end.column
+                    && (req_pos.character + 1) as usize <= pos.end.column
                 {
                     return Some(node);
                 }
             };
+        }
+        Node::FootnoteDefinition(FootnoteDefinition {
+            position: Some(pos),
+            ..
+        }) => {
+            if (req_pos.line + 1) as usize >= pos.start.line
+                && (req_pos.line + 1) as usize <= pos.end.line
+                && (req_pos.character + 1) as usize >= pos.start.column
+            //&& (req_pos.character + 1) as usize <= pos.end.column
+            {
+                return Some(node);
+            }
         }
         _ => {}
     }
@@ -235,12 +254,7 @@ fn rename_definition(
     let mut definition_changes = HashMap::new();
     if let Some(ast) = state.ast_for_uri(req_uri) {
         if let Some(definition) = find_definition_for_identifier(ast, &link_ref.identifier) {
-            if let Some(pos) = &definition.position {
-                let start_line = pos.start.line - 1;
-                let start_char = pos.start.column;
-                let end_line = pos.end.line - 1;
-                let end_char = pos.start.column + link_ref.identifier.len();
-                let range = rename_range(start_line, end_line, start_char, end_char);
+            if let Some(range) = definition_rename_range(definition) {
                 let text_edit = TextEdit {
                     range,
                     new_text: new_name.to_string(),
@@ -252,4 +266,43 @@ fn rename_definition(
         }
     }
     definition_changes
+}
+
+//LinkReference { children: [Text { value: "github", position: Some(113:22-113:28 (1404-1410)) }], position: Some(113:21-113:42 (1403-1424)), reference_kind: Full, identifier: "github-link", label: │ md_lsp::server      │ 1708242944695 │ │      │       │  Some("github-link") })
+/// LinkReferences also only in same document
+fn rename_link_refs(
+    new_name: &str,
+    req_uri: &Url,
+    identifier: &str,
+    state: &State,
+) -> Option<HashMap<Url, Vec<TextEdit>>> {
+    if let Some(ast) = state.ast_for_uri(req_uri) {
+        let link_refs = find_link_references_for_identifier(ast, identifier);
+        let link_refs = link_refs.into_iter().fold(
+            HashMap::new(),
+            |mut acc: HashMap<Url, Vec<TextEdit>>, link_ref| {
+                if let Some(range) = link_ref_rename_range(link_ref) {
+                    let text_edit = TextEdit {
+                        range,
+                        new_text: new_name.to_string(),
+                    };
+                    acc.entry(req_uri.clone()).or_default().push(text_edit);
+                }
+                acc
+            },
+        );
+        Some(link_refs)
+    } else {
+        None
+    }
+}
+
+fn merge_maps<T, U>(map1: &mut HashMap<T, Vec<U>>, map2: HashMap<T, Vec<U>>)
+where
+    T: Eq + std::hash::Hash,
+    U: Clone,
+{
+    for (key, values) in map2 {
+        map1.entry(key).or_insert_with(|| Vec::new()).extend(values);
+    }
 }

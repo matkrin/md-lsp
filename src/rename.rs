@@ -6,7 +6,10 @@ use markdown::mdast::{
 };
 
 use crate::{
-    ast::{find_definition_for_identifier, find_link_references_for_identifier},
+    ast::{
+        find_definition_for_identifier, find_foot_definition_for_identifier,
+        find_footnote_references_for_identifier, find_link_references_for_identifier,
+    },
     definition,
     references::{get_heading_refs, FoundLink},
     state::State,
@@ -52,7 +55,8 @@ pub fn rename(
             }
             Node::LinkReference(link_ref) => {
                 let mut def_changes = rename_definition(new_name, req_uri, link_ref, state);
-                let link_ref_changes = rename_link_refs(new_name, req_uri, &link_ref.identifier, state)?;
+                let link_ref_changes =
+                    rename_link_refs(new_name, req_uri, &link_ref.identifier, state)?;
                 merge_maps(&mut def_changes, link_ref_changes);
                 Some(def_changes)
             }
@@ -73,8 +77,31 @@ pub fn rename(
                     },
                 )
             }
-            Node::FootnoteReference(FootnoteReference { position, .. }) => None,
-            Node::FootnoteDefinition(FootnoteDefinition { position, .. }) => None,
+            Node::FootnoteReference(footnote_ref) => {
+                let mut footnote_def_changes =
+                    rename_footnote_def(new_name, req_uri, footnote_ref, state);
+                let footnote_ref_changes =
+                    rename_footnote_refs(new_name, req_uri, &footnote_ref.identifier, state)?;
+                merge_maps(&mut footnote_def_changes, footnote_ref_changes);
+                Some(footnote_def_changes)
+            }
+            Node::FootnoteDefinition(footnote_def) => {
+                rename_footnote_refs(new_name, req_uri, &footnote_def.identifier, state).map(
+                    |mut footnote_ref_changes| {
+                        if let Some(range) = footnote_def_rename_range(footnote_def) {
+                            let footnote_def_change = TextEdit {
+                                range,
+                                new_text: new_name.to_string(),
+                            };
+                            footnote_ref_changes
+                                .entry(req_uri.clone())
+                                .or_default()
+                                .push(footnote_def_change);
+                        }
+                        footnote_ref_changes
+                    },
+                )
+            }
             _ => unreachable!(),
         }
     } else {
@@ -292,6 +319,59 @@ fn rename_link_refs(
             },
         );
         Some(link_refs)
+    } else {
+        None
+    }
+}
+
+fn rename_footnote_def(
+    new_name: &str,
+    req_uri: &Url,
+    footnote_ref: &FootnoteReference,
+    state: &State,
+) -> HashMap<Url, Vec<TextEdit>> {
+    let mut footnote_def_changes = HashMap::new();
+    if let Some(ast) = state.ast_for_uri(req_uri) {
+        if let Some(footnote_def) =
+            find_foot_definition_for_identifier(ast, &footnote_ref.identifier)
+        {
+            if let Some(range) = footnote_def_rename_range(footnote_def) {
+                let text_edit = TextEdit {
+                    range,
+                    new_text: new_name.to_string(),
+                };
+                footnote_def_changes
+                    .entry(req_uri.clone())
+                    .or_insert(vec![text_edit]);
+            }
+        }
+    }
+    footnote_def_changes
+}
+
+//FootnoteReference { position: Some(102:19-102:35 (1171-1187)), identifier: "text-footnote", label: Some("text-footnote") })
+fn rename_footnote_refs(
+    new_name: &str,
+    req_uri: &Url,
+    identifier: &str,
+    state: &State,
+) -> Option<HashMap<Url, Vec<TextEdit>>> {
+    if let Some(ast) = state.ast_for_uri(req_uri) {
+        let footnote_refs = find_footnote_references_for_identifier(ast, identifier);
+        let footnote_refs = footnote_refs.into_iter().fold(
+            HashMap::new(),
+            |mut acc: HashMap<Url, Vec<TextEdit>>, footnote_ref| {
+                if let Some(range) = footnote_ref_rename_range(footnote_ref) {
+                    let text_edit = TextEdit {
+                        range,
+                        new_text: new_name.to_string(),
+                    };
+                    acc.entry(req_uri.clone()).or_default().push(text_edit);
+                }
+                acc
+            },
+        );
+        Some(footnote_refs)
     } else {
         None
     }

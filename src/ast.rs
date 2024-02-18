@@ -125,24 +125,26 @@ pub fn find_link_references_for_identifier<'a>(
     link_refs
 }
 
-pub fn find_footnote_references_for_identifier(
-    node: &Node,
+pub fn find_footnote_references_for_identifier<'a>(
+    node: &'a Node,
     identifier: &str,
-    footnote_refs: &mut Vec<Range>,
-) {
-    if let Some(children) = node.children() {
-        for child in children {
-            if let Node::FootnoteReference(fn_ref) = child {
-                if fn_ref.identifier == identifier {
-                    if let Some(pos) = &fn_ref.position {
-                        footnote_refs.push(range_from_position(pos))
+) -> Vec<&'a FootnoteReference>{
+    let mut footnote_refs = Vec::new();
+    match node {
+         Node::FootnoteReference(fn_ref) => {
+            if fn_ref.identifier == identifier {
+                footnote_refs.push(fn_ref)
+            }
+        },
+        _ => {
+                if let Some(children) = node.children() {
+                    for child in children {
+                        footnote_refs.extend(find_footnote_references_for_identifier(child, identifier))
                     }
                 }
-            } else {
-                find_footnote_references_for_identifier(child, identifier, footnote_refs)
             }
         }
-    };
+    footnote_refs
 }
 
 pub fn find_headings<'a>(node: &'a Node, headings: &mut Vec<&'a Heading>) {

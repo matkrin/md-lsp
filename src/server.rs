@@ -245,9 +245,7 @@ impl Server {
             Some(n) => match n {
                 Node::Heading(h) => Some(handle_heading(h, &req_uri, state)),
                 Node::Definition(d) => handle_definition(req_ast, &req_uri, d),
-                Node::FootnoteDefinition(f) => {
-                    Some(handle_footnote_definition(req_ast, &req_uri, f))
-                }
+                Node::FootnoteDefinition(f) =>  handle_footnote_definition(req_ast, &req_uri, f),
                 _ => None,
             },
             None => None,

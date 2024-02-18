@@ -62,18 +62,17 @@ pub fn handle_footnote_definition<'a>(
     req_ast: &Node,
     req_uri: &'a Url,
     fn_definition: &FootnoteDefinition,
-) -> Vec<FoundRef<'a>> {
-    let mut footnote_ranges = Vec::new();
-    find_footnote_references_for_identifier(
-        req_ast,
-        &fn_definition.identifier,
-        &mut footnote_ranges,
-    );
-    footnote_ranges
+) -> Option<Vec<FoundRef<'a>>> {
+    let footnote_refs = find_footnote_references_for_identifier( req_ast, &fn_definition.identifier);
+    footnote_refs
         .into_iter()
-        .map(|fnr| FoundRef {
-            file_url: req_uri,
-            range: fnr,
+        .map(|footnote_ref| {
+            footnote_ref.position.as_ref().map(|pos| {
+                FoundRef {
+                    file_url: req_uri,
+                    range: range_from_position(pos),
+                }
+            })
         })
         .collect()
 }

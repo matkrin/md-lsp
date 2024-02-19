@@ -258,7 +258,7 @@ fn rename_heading_refs(
                     let range = rename_range(start_line, end_line, start_char, end_char);
                     let text_edit = TextEdit {
                         range,
-                        new_text: new_name.to_string(),
+                        new_text: new_name.to_lowercase().replace(' ', "-"),
                     };
                     acc.entry(uri.clone()).or_default().push(text_edit);
                 }

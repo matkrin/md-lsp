@@ -35,15 +35,18 @@
     - [x] entire buffer
     - [ ] ranged
 
-* [ ] rename
-    - [ ] Heading
-    - [ ] LinkReference
-    - [ ] Definition
-    - [ ] FootnoteReference
-    - [ ] FootnoteDefinition
+* [x] rename
+    - [x] Heading
+    - [x] LinkReference
+    - [x] Definition
+    - [x] FootnoteReference
+    - [x] FootnoteDefinition
+
+* [x] code actions
+    - [x] creating table of content
+    - [x] updating table of content
 
 * [ ] completion
-* [ ] code actions
 
 
 [^heading]: `# Heading`

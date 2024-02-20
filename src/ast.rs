@@ -164,6 +164,74 @@ pub fn find_headings(node: &Node) -> Vec<&Heading> {
     headings
 }
 
+pub fn find_defintions(node: &Node) -> Vec<&Definition> {
+    let mut definitions = Vec::new();
+    match node {
+        Node::Definition(def) => {
+            definitions.push(def);
+        }
+        _ => {
+            if let Some(children) = node.children() {
+                for child in children {
+                    definitions.extend(find_defintions(child))
+                }
+            }
+        }
+    }
+    definitions
+}
+
+pub fn find_link_references(node: &Node) -> Vec<&LinkReference> {
+    let mut link_refs = Vec::new();
+    match node {
+        Node::LinkReference(link_ref) => {
+            link_refs.push(link_ref);
+        }
+        _ => {
+            if let Some(children) = node.children() {
+                for child in children {
+                    link_refs.extend(find_link_references(child))
+                }
+            }
+        }
+    }
+    link_refs
+}
+
+pub fn find_footnote_definitions(node: &Node) -> Vec<&FootnoteDefinition> {
+    let mut footnote_defs = Vec::new();
+    match node {
+        Node::FootnoteDefinition(footnote_def) => {
+            footnote_defs.push(footnote_def);
+        }
+        _ => {
+            if let Some(children) = node.children() {
+                for child in children {
+                    footnote_defs.extend(find_footnote_definitions(child))
+                }
+            }
+        }
+    }
+    footnote_defs
+}
+
+pub fn find_foonote_references(node: &Node) -> Vec<&FootnoteReference> {
+    let mut footnote_refs = Vec::new();
+    match node {
+        Node::FootnoteReference(footnote_ref) => {
+            footnote_refs.push(footnote_ref);
+        }
+        _ => {
+            if let Some(children) = node.children() {
+                for child in children {
+                    footnote_refs.extend(find_foonote_references(child))
+                }
+            }
+        }
+    }
+    footnote_refs
+}
+
 pub fn find_html_nodes(node: &Node) -> Vec<&Html> {
     let mut htmls = Vec::new();
     match node {

@@ -2,9 +2,11 @@ use std::fs::File;
 
 use anyhow::Result;
 use lsp_server::Connection;
-use lsp_types::{ CodeActionProviderCapability, HoverProviderCapability, InitializeParams, OneOf, RenameOptions, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind, WorkDoneProgressOptions };
-use md_lsp::{state::State, server::Server};
-
+use lsp_types::{
+    CodeActionProviderCapability, HoverProviderCapability, InitializeParams, OneOf, RenameOptions,
+    ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind, WorkDoneProgressOptions,
+};
+use md_lsp::{server::Server, state::State};
 
 fn main() -> Result<()> {
     // Note that  we must have our logging only write out to stderr.
@@ -32,8 +34,27 @@ fn main() -> Result<()> {
         document_symbol_provider: Some(OneOf::Left(true)),
         workspace_symbol_provider: Some(OneOf::Left(true)),
         document_formatting_provider: Some(OneOf::Left(true)),
-        rename_provider: Some(OneOf::Right(RenameOptions { prepare_provider: Some(true), work_done_progress_options: WorkDoneProgressOptions{ work_done_progress: None } })),
+        rename_provider: Some(OneOf::Right(RenameOptions {
+            prepare_provider: Some(true),
+            work_done_progress_options: WorkDoneProgressOptions {
+                work_done_progress: None,
+            },
+        })),
         code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
+        completion_provider: Some(lsp_types::CompletionOptions {
+            resolve_provider: None,
+            trigger_characters: Some(vec![
+                "[".to_string(),
+                "(".to_string(),
+                "#".to_string(),
+                "|".to_string(),
+            ]),
+            work_done_progress_options: WorkDoneProgressOptions {
+                work_done_progress: None,
+            },
+            all_commit_characters: None,
+            completion_item: None,
+        }),
         ..Default::default()
     })
     .unwrap();

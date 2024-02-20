@@ -1,16 +1,17 @@
 use anyhow::Result;
 use lsp_server::{Connection, Message, Notification, Response};
 use lsp_types::{
-    CodeActionParams, Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams,
-    DidCloseTextDocumentParams, DidOpenTextDocumentParams, DocumentFormattingParams,
-    DocumentSymbolParams, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams,
-    Location, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams, RenameParams,
-    TextDocumentPositionParams, Url, WorkspaceEdit,
+    CodeActionParams, CompletionParams, Diagnostic, DiagnosticSeverity,
+    DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
+    DocumentFormattingParams, DocumentSymbolParams, GotoDefinitionParams, GotoDefinitionResponse,
+    Hover, HoverParams, Location, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams,
+    RenameParams, TextDocumentPositionParams, Url, WorkspaceEdit,
 };
 use markdown::mdast::Node;
 
 use crate::ast::{find_definition_for_position, find_headings, find_link_for_position};
 use crate::code_actions::code_actions;
+use crate::completion::{self, completion};
 use crate::definition::{
     def_handle_link_footnote, def_handle_link_ref, def_handle_link_to_heading,
 };
@@ -47,14 +48,13 @@ impl Server {
                         }
                         "workspace/symbol" => self.handle_workspace_symbol(req, &mut state)?,
                         "textDocument/formatting" => self.handle_formatting(req, &mut state)?,
-                        "textDocument/prepareRename" => {
-                            self.handle_prepare_rename(req, &mut state)?
-                        }
-                        "textDocument/rename" => self.handle_rename(req, &mut state)?,
+                        "textDocument/prepareRename" => self.handle_prepare_rename(req, &state)?,
+                        "textDocument/rename" => self.handle_rename(req, &state)?,
                         "textDocument/diagnostic" => {
                             log::info!("DIAGNOSTIC REQUEST: {:?}", req);
                         }
-                        "textDocument/codeAction" => self.handle_code_action(req, &mut state)?,
+                        "textDocument/codeAction" => self.handle_code_action(req, &state)?,
+                        "textDocument/completion" => self.handle_completion(req, &state)?,
                         _ => {
                             log::info!("OTHER REQUEST: {:?}", req);
                         }
@@ -384,7 +384,11 @@ impl Server {
         log::info!("PARAMS : {:?}", params);
         let req_uri = params.text_document.uri;
         let result = code_actions(&req_uri, state).and_then(|it| serde_json::to_value(it).ok());
-        let resp = Response { id: req.id, result, error: None };
+        let resp = Response {
+            id: req.id,
+            result,
+            error: None,
+        };
         self.connection.sender.send(Message::Response(resp))?;
 
         Ok(())
@@ -400,5 +404,19 @@ impl Server {
         //  text_document: TextDocumentIdentifier { uri: Url { scheme: "file", cannot_be_a_base: false, username: "", password: None, host: None, port: None, path: "/home/matthias/github/md-lsp/test.md", query: None, fragment: None } },
         //  range: Range { start: Position { line: 0, character: 0 }, end: Position { line: 0, character: 0 } },
         //  context: CodeActionContext { diagnostics: [], only: None, trigger_kind: Some(Invoked) }, work_done_progress_params: WorkDoneProgressParams { work_done_token: None }, partial_result_params: PartialResultParams { partial_result_token: None } }
+    }
+
+    fn handle_completion(&self, req: lsp_server::Request, state: &State) -> Result<()> {
+        let params: CompletionParams = serde_json::from_value(req.params)?;
+        log::info!("COMPLETION PARAMS : {:?}", params);
+        let result = completion(params, state)
+            .and_then(|completion_list| serde_json::to_value(completion_list).ok());
+        let resp = Response {
+            id: req.id,
+            result,
+            error: None,
+        };
+        self.connection.sender.send(Message::Response(resp))?;
+        Ok(())
     }
 }

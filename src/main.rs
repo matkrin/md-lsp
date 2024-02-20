@@ -2,7 +2,7 @@ use std::fs::File;
 
 use anyhow::Result;
 use lsp_server::Connection;
-use lsp_types::{ HoverProviderCapability, InitializeParams, OneOf, RenameOptions, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind, WorkDoneProgressOptions };
+use lsp_types::{ CodeActionProviderCapability, HoverProviderCapability, InitializeParams, OneOf, RenameOptions, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind, WorkDoneProgressOptions };
 use md_lsp::{state::State, server::Server};
 
 
@@ -33,6 +33,7 @@ fn main() -> Result<()> {
         workspace_symbol_provider: Some(OneOf::Left(true)),
         document_formatting_provider: Some(OneOf::Left(true)),
         rename_provider: Some(OneOf::Right(RenameOptions { prepare_provider: Some(true), work_done_progress_options: WorkDoneProgressOptions{ work_done_progress: None } })),
+        code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
         ..Default::default()
     })
     .unwrap();

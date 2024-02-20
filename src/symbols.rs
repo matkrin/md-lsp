@@ -8,8 +8,7 @@ use crate::{
 };
 
 pub fn document_symbols(req_ast: &Node) -> Option<Vec<DocumentSymbol>> {
-    let mut headings = Vec::new();
-    find_headings(req_ast, &mut headings);
+    let headings = find_headings(req_ast);
 
     headings
         .into_iter()
@@ -39,8 +38,7 @@ pub fn workspace_symbols(state: &State) -> Option<Vec<WorkspaceSymbol>> {
         .md_files
         .iter()
         .flat_map(|(url, md_file)| {
-            let mut headings = Vec::new();
-            find_headings(&md_file.ast, &mut headings);
+            let headings = find_headings(&md_file.ast);
             headings.into_iter().map(|heading| {
                 get_heading_text(heading).and_then(|heading_text| {
                     heading.position.as_ref().map(|pos| {

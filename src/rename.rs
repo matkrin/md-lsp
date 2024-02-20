@@ -205,7 +205,7 @@ fn find_renameable_for_position<'a>(node: &'a Node, req_pos: &Position) -> Optio
     traverse_ast!(node, find_renameable_for_position, req_pos)
 }
 
-fn get_text_child(children: &Vec<Node>) -> Option<&Text> {
+pub fn get_text_child(children: &Vec<Node>) -> Option<&Text> {
     for child in children {
         if let Node::Text(t) = child {
             return Some(t);

@@ -1,15 +1,16 @@
 use anyhow::Result;
 use lsp_server::{Connection, Message, Notification, Response};
 use lsp_types::{
-    Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
-    DidOpenTextDocumentParams, DocumentFormattingParams, DocumentSymbolParams,
-    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams, Location, MarkupContent,
-    MarkupKind, Position, PublishDiagnosticsParams, RenameParams,
+    CodeActionParams, Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams,
+    DidCloseTextDocumentParams, DidOpenTextDocumentParams, DocumentFormattingParams,
+    DocumentSymbolParams, GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams,
+    Location, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams, RenameParams,
     TextDocumentPositionParams, Url, WorkspaceEdit,
 };
 use markdown::mdast::Node;
 
-use crate::ast::{find_definition_for_position, find_link_for_position};
+use crate::ast::{find_definition_for_position, find_headings, find_link_for_position};
+use crate::code_actions::code_actions;
 use crate::definition::{
     def_handle_link_footnote, def_handle_link_ref, def_handle_link_to_heading,
 };
@@ -53,6 +54,7 @@ impl Server {
                         "textDocument/diagnostic" => {
                             log::info!("DIAGNOSTIC REQUEST: {:?}", req);
                         }
+                        "textDocument/codeAction" => self.handle_code_action(req, &mut state)?,
                         _ => {
                             log::info!("OTHER REQUEST: {:?}", req);
                         }
@@ -65,6 +67,9 @@ impl Server {
                     "textDocument/didOpen" => self.handle_did_open(not, &mut state)?,
                     "textDocument/didChange" => self.handle_did_change(not, &mut state)?,
                     "textDocument/didClose" => self.handle_did_close(not)?,
+                    "workspace/didChangeWatchedFiles" => {
+                        self.handle_did_change_watched_files(not)?
+                    }
                     _ => {
                         log::info!("OTHER NOTIFICATION: {:?}", not)
                     }
@@ -194,7 +199,7 @@ impl Server {
 
         let req_ast = state.ast_for_uri(&req_uri).unwrap();
         let node = find_link_for_position(req_ast, line, character);
-        log::info!("HOVER NODE: {:?}", node);
+        log::info!("HOVERR NODE : {:?}", node);
 
         let message = match node {
             Some(n) => match n {
@@ -245,7 +250,7 @@ impl Server {
             Some(n) => match n {
                 Node::Heading(h) => Some(handle_heading(h, &req_uri, state)),
                 Node::Definition(d) => handle_definition(req_ast, &req_uri, d),
-                Node::FootnoteDefinition(f) =>  handle_footnote_definition(req_ast, &req_uri, f),
+                Node::FootnoteDefinition(f) => handle_footnote_definition(req_ast, &req_uri, f),
                 _ => None,
             },
             None => None,
@@ -346,14 +351,10 @@ impl Server {
 
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_rename
     fn handle_rename(&self, req: lsp_server::Request, state: &State) -> Result<()> {
-        log::info!("RENAME REQUEST : {:?}", req);
         let params: RenameParams = serde_json::from_value(req.params)?;
         let req_uri = params.text_document_position.text_document.uri;
         let new_name = params.new_name;
         let req_pos = params.text_document_position.position;
-        // let path = text_doc_position.text_document.uri.path();
-        log::info!("NEW NAME : {:?}", new_name);
-        log::info!("DOC POSITION : {:?}", req_uri);
 
         let result = rename(&new_name, &req_uri, &req_pos, state)
             .map(|changes| WorkspaceEdit {
@@ -370,5 +371,34 @@ impl Server {
 
         self.connection.sender.send(Message::Response(resp))?;
         Ok(())
+    }
+
+    fn handle_did_change_watched_files(&self, not: lsp_server::Notification) -> Result<()> {
+        log::info!("HANDLE DID CHANGE WATCHED FILE: {:?}", not);
+        Ok(())
+    }
+
+    fn handle_code_action(&self, req: lsp_server::Request, state: &State) -> Result<()> {
+        log::info!("CODE ACTION : {:?}", req);
+        let params: CodeActionParams = serde_json::from_value(req.params)?;
+        log::info!("PARAMS : {:?}", params);
+        let req_uri = params.text_document.uri;
+        let result = code_actions(&req_uri, state).and_then(|it| serde_json::to_value(it).ok());
+        let resp = Response { id: req.id, result, error: None };
+        self.connection.sender.send(Message::Response(resp))?;
+
+        Ok(())
+        // CODE ACTION : Request {
+        // id: RequestId(I32(2)),
+        // method: "textDocument/codeAction",
+        // params: Object {
+        //      "context": Object {"diagnostics": Array [], "triggerKind": Number(1)},
+        //      "range": Object {"end": Object {"character":  Number(0), "line": Number(0)}, "start": Object {"character": Number(0), "line": Number(0)}},
+        //      "textDocument": Object {"uri": String("file:///home/matthias/github/md-lsp/test.md")}}
+        // }
+        //  PARAMS : CodeActionParams {
+        //  text_document: TextDocumentIdentifier { uri: Url { scheme: "file", cannot_be_a_base: false, username: "", password: None, host: None, port: None, path: "/home/matthias/github/md-lsp/test.md", query: None, fragment: None } },
+        //  range: Range { start: Position { line: 0, character: 0 }, end: Position { line: 0, character: 0 } },
+        //  context: CodeActionContext { diagnostics: [], only: None, trigger_kind: Some(Invoked) }, work_done_progress_params: WorkDoneProgressParams { work_done_token: None }, partial_result_params: PartialResultParams { partial_result_token: None } }
     }
 }

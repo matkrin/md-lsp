@@ -86,7 +86,6 @@ pub fn get_heading_refs<'a>(
             heading_refs.append(&mut find_links_in(&md_file.ast, value, req_uri, url));
         }
     }
-    log::info!("HEADING REFS: {:?}", heading_refs);
     heading_refs
 }
 

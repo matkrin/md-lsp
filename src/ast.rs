@@ -1,7 +1,7 @@
 use markdown::mdast::{
-    Definition, FootnoteDefinition, FootnoteReference, Heading, Link, LinkReference, Node, Text,
+    Definition, FootnoteDefinition, FootnoteReference, Heading, Html, Link, LinkReference, Node,
+    Text,
 };
-
 
 /// Recursive AST traversal
 #[macro_export]
@@ -21,6 +21,7 @@ macro_rules! traverse_ast {
 }
 
 pub fn find_link_for_position(node: &Node, line: u32, character: u32) -> Option<&Node> {
+    log::info!("NODE: {:?}", node);
     match node {
         Node::Link(Link { position, .. })
         | Node::LinkReference(LinkReference { position, .. })
@@ -65,7 +66,9 @@ pub fn find_definition_for_position(node: &Node, line: u32, character: u32) -> O
 pub fn find_heading_for_url<'a>(node: &'a Node, link_url: &str) -> Option<&'a Heading> {
     if let Node::Heading(heading) = node {
         if let Some(Node::Text(Text { value, .. })) = heading.children.first() {
-            if value == &link_url.replace('#', "") || value.to_lowercase().replace(' ', "-") == link_url.replace('#', "") {
+            if value == &link_url.replace('#', "")
+                || value.to_lowercase().replace(' ', "-") == link_url.replace('#', "")
+            {
                 return Some(heading);
             }
         }
@@ -125,35 +128,57 @@ pub fn find_link_references_for_identifier<'a>(
 pub fn find_footnote_references_for_identifier<'a>(
     node: &'a Node,
     identifier: &str,
-) -> Vec<&'a FootnoteReference>{
+) -> Vec<&'a FootnoteReference> {
     let mut footnote_refs = Vec::new();
     match node {
-         Node::FootnoteReference(fn_ref) => {
+        Node::FootnoteReference(fn_ref) => {
             if fn_ref.identifier == identifier {
                 footnote_refs.push(fn_ref)
             }
-        },
+        }
         _ => {
-                if let Some(children) = node.children() {
-                    for child in children {
-                        footnote_refs.extend(find_footnote_references_for_identifier(child, identifier))
-                    }
+            if let Some(children) = node.children() {
+                for child in children {
+                    footnote_refs.extend(find_footnote_references_for_identifier(child, identifier))
                 }
             }
         }
+    }
     footnote_refs
 }
 
-pub fn find_headings<'a>(node: &'a Node, headings: &mut Vec<&'a Heading>) {
-    if let Some(children) = node.children() {
-        for child in children {
-            if let Node::Heading(heading) = child {
-                headings.push(heading)
-            } else {
-                find_headings(child, headings)
+pub fn find_headings(node: &Node) -> Vec<&Heading> {
+    let mut headings = Vec::new();
+    match node {
+        Node::Heading(heading) => {
+            headings.push(heading);
+        }
+        _ => {
+            if let Some(children) = node.children() {
+                for child in children {
+                    headings.extend(find_headings(child))
+                }
             }
         }
     }
+    headings
+}
+
+pub fn find_html_nodes(node: &Node) -> Vec<&Html> {
+    let mut htmls = Vec::new();
+    match node {
+        Node::Html(html) => {
+            htmls.push(html);
+        }
+        _ => {
+            if let Some(children) = node.children() {
+                for child in children {
+                    htmls.extend(find_html_nodes(child))
+                }
+            }
+        }
+    }
+    htmls
 }
 
 pub fn get_heading_text(heading: &Heading) -> Option<&str> {

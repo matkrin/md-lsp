@@ -73,7 +73,6 @@ fn handle_broken_link(state: &State, link: &Link) -> Vec<BrokenLink> {
             };
         }
         Some(ResolvedLink { uri, heading }) => {
-            log::info!("heading {:?}", heading);
             if let (Some(h), Some(pos)) = (heading, &link.position) {
                 let found = state
                     .ast_for_uri(&uri)
@@ -87,7 +86,7 @@ fn handle_broken_link(state: &State, link: &Link) -> Vec<BrokenLink> {
                 }
             };
         }
-        Some(_) => {}
+        // Some(_) => {}
     };
     broken_links
 }

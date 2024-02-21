@@ -45,6 +45,7 @@ fn main() -> Result<()> {
             resolve_provider: None,
             trigger_characters: Some(vec![
                 "[".to_string(),
+                "^".to_string(),
                 "(".to_string(),
                 "#".to_string(),
                 "|".to_string(),

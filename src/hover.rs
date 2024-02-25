@@ -1,7 +1,7 @@
-use lsp_types::Url;
+use lsp_types::{Range, Url};
 use markdown::mdast::{Definition, FootnoteReference, Heading, Link, LinkReference, Node};
 
-use crate::{ast::find_heading_for_url, links::resolve_link, state::State, traverse_ast};
+use crate::{ast::find_heading_for_url, definition::range_from_position, links::resolve_link, state::State, traverse_ast};
 
 pub fn get_target_heading_uri<'a>(req_uri: &Url, link: &'a Link, state: &'a State) -> (Url, Option<&'a str>) {
     match &state.workspace_folder() {
@@ -55,14 +55,20 @@ pub fn hov_handle_link_reference(ast: &Node, link_ref: &LinkReference) -> Option
 }
 
 pub fn hov_handle_footnote_reference(
-    ast: &Node,
+    req_uri: &Url,
     footnote_ref: &FootnoteReference,
+    state: &State,
 ) -> Option<String> {
+    let ast = state.ast_for_uri(req_uri)?;
     let def_node = find_def_for_footnote_ref(ast, footnote_ref)?;
     log::info!("DEF NODE: {:?}", def_node);
-    let footnote_identifier = get_footnote_identifier(def_node)?;
-    let footnote_text = get_footnote_def_text(def_node)?;
-    Some(format!("[^{}]: {}", footnote_identifier, footnote_text))
+    def_node.position().and_then(|pos| {
+        let range = range_from_position(pos);
+        state.buffer_range_for_uri(req_uri, &range)
+    })
+    // let footnote_identifier = get_footnote_identifier(def_node)?;
+    // let footnote_text = get_footnote_def_text(def_node)?;
+    // Some(format!("[^{}]: {}", footnote_identifier, footnote_text))
 }
 
 fn find_def_for_link_ref<'a>(node: &'a Node, link_ref: &LinkReference) -> Option<&'a Definition> {

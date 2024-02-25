@@ -210,7 +210,7 @@ impl Server {
                 Node::Link(link) => hov_handle_link(&req_uri, link, state),
                 Node::LinkReference(link_ref) => hov_handle_link_reference(req_ast, link_ref),
                 Node::FootnoteReference(foot_ref) => {
-                    hov_handle_footnote_reference(req_ast, foot_ref)
+                    hov_handle_footnote_reference(&req_uri, foot_ref, state)
                 }
                 _ => None,
             },

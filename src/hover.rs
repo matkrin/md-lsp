@@ -59,6 +59,7 @@ pub fn hov_handle_footnote_reference(
     footnote_ref: &FootnoteReference,
 ) -> Option<String> {
     let def_node = find_def_for_footnote_ref(ast, footnote_ref)?;
+    log::info!("DEF NODE: {:?}", def_node);
     let footnote_identifier = get_footnote_identifier(def_node)?;
     let footnote_text = get_footnote_def_text(def_node)?;
     Some(format!("[^{}]: {}", footnote_identifier, footnote_text))

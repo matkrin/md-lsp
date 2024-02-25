@@ -1,7 +1,8 @@
 use std::{collections::HashMap, fs, path::PathBuf};
 
 use ignore::Walk;
-use lsp_types::{Url, WorkspaceFolder};
+use itertools::Itertools;
+use lsp_types::{Range, Url, WorkspaceFolder};
 use markdown::mdast::Node;
 
 use crate::links::parse_wiki_links;
@@ -48,7 +49,9 @@ impl State {
     }
 
     pub fn buffer_for_uri(&self, uri: &Url) -> Option<&str> {
-        self.md_files.get(uri).map(|md_file| md_file.buffer.as_str())
+        self.md_files
+            .get(uri)
+            .map(|md_file| md_file.buffer.as_str())
     }
 
     pub fn index_md_files(&mut self, workspace_folders: &[WorkspaceFolder]) {
@@ -61,13 +64,7 @@ impl State {
                 parse_wiki_links(&mut ast);
                 let uri = Url::from_file_path(&file).unwrap();
 
-                (
-                    uri,
-                    MdFile {
-                        buffer,
-                        ast,
-                    },
-                )
+                (uri, MdFile { buffer, ast })
             })
             .collect();
     }
@@ -85,5 +82,30 @@ impl State {
             }
         }
         md_files
+    }
+
+    pub fn buffer_range_for_uri(&self, uri: &Url, range: &Range) -> Option<String> {
+        let doc = self.buffer_for_uri(uri)?;
+        let start_line = range.start.line as usize;
+        let end_line = range.end.line as usize;
+        let start_column = range.start.character as usize;
+        let end_column = range.end.character as usize;
+
+        let sliced = doc
+            .lines()
+            .enumerate()
+            .filter_map(|(line_num, line)| {
+                if line_num == start_line {
+                    line.get(start_column..)
+                } else if line_num == end_line {
+                    line.get(..end_column)
+                } else if line_num >= start_line && line_num <= end_line {
+                    Some(line)
+                } else {
+                    None
+                }
+            })
+            .join("\n");
+        Some(sliced)
     }
 }

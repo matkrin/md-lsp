@@ -21,7 +21,7 @@ macro_rules! traverse_ast {
 }
 
 pub fn find_link_for_position(node: &Node, line: u32, character: u32) -> Option<&Node> {
-    log::info!("NODE: {:?}", node);
+    // log::info!("NODE: {:?}", node);
     match node {
         Node::Link(Link { position, .. })
         | Node::LinkReference(LinkReference { position, .. })

@@ -34,6 +34,7 @@ fn main() -> Result<()> {
         document_symbol_provider: Some(OneOf::Left(true)),
         workspace_symbol_provider: Some(OneOf::Left(true)),
         document_formatting_provider: Some(OneOf::Left(true)),
+        document_range_formatting_provider: Some(OneOf::Left(true)),
         rename_provider: Some(OneOf::Right(RenameOptions {
             prepare_provider: Some(true),
             work_done_progress_options: WorkDoneProgressOptions {

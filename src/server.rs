@@ -3,9 +3,10 @@ use lsp_server::{Connection, Message, Notification, Response};
 use lsp_types::{
     CodeActionParams, CompletionParams, Diagnostic, DiagnosticSeverity,
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
-    DocumentFormattingParams, DocumentSymbolParams, GotoDefinitionParams, GotoDefinitionResponse,
-    Hover, HoverParams, Location, MarkupContent, MarkupKind, Position, PublishDiagnosticsParams,
-    RenameParams, TextDocumentPositionParams, Url, WorkspaceEdit,
+    DocumentFormattingParams, DocumentRangeFormattingParams, DocumentSymbolParams,
+    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams, Location, MarkupContent,
+    MarkupKind, Position, PublishDiagnosticsParams, RenameParams, TextDocumentPositionParams, Url,
+    WorkspaceEdit,
 };
 use markdown::mdast::Node;
 
@@ -16,7 +17,7 @@ use crate::definition::{
     def_handle_link_footnote, def_handle_link_ref, def_handle_link_to_heading,
 };
 use crate::diagnostics::check_links;
-use crate::formatting::formatting;
+use crate::formatting::{formatting, range_formatting};
 use crate::hover::{hov_handle_footnote_reference, hov_handle_link, hov_handle_link_reference};
 use crate::references::{handle_definition, handle_footnote_definition, handle_heading};
 use crate::rename::{prepare_rename, rename};
@@ -48,6 +49,9 @@ impl Server {
                         }
                         "workspace/symbol" => self.handle_workspace_symbol(req, &mut state)?,
                         "textDocument/formatting" => self.handle_formatting(req, &mut state)?,
+                        "textDocument/rangeFormatting" => {
+                            self.handle_range_formatting(req, &mut state)?
+                        }
                         "textDocument/prepareRename" => self.handle_prepare_rename(req, &state)?,
                         "textDocument/rename" => self.handle_rename(req, &state)?,
                         "textDocument/diagnostic" => {
@@ -319,6 +323,24 @@ impl Server {
         let req_uri = params.text_document.uri;
 
         let result = formatting(&req_uri, state).and_then(|it| serde_json::to_value(it).ok());
+        let resp = Response {
+            id: req.id,
+            result,
+            error: None,
+        };
+
+        self.connection.sender.send(Message::Response(resp))?;
+
+        Ok(())
+    }
+
+    /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_rangeFormatting
+    fn handle_range_formatting(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
+        let params: DocumentRangeFormattingParams = serde_json::from_value(req.params)?;
+        let req_uri = params.text_document.uri;
+        let req_range = params.range;
+        let result = range_formatting(&req_uri, &req_range, state)
+            .and_then(|it| serde_json::to_value(it).ok());
         let resp = Response {
             id: req.id,
             result,

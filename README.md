@@ -31,9 +31,9 @@
 
 * [x] document symbols
 * [x] workspace symbols
-* [.] formatting:
+* [x] formatting:
     - [x] entire buffer
-    - [ ] ranged
+    - [x] ranged
 
 * [x] rename
     - [x] Heading
@@ -43,13 +43,22 @@
     - [x] FootnoteDefinition
 
 * [x] code actions
-    - [x] creating table of content
-    - [x] updating table of content
+    - [x] creating table of contents
+    - [x] updating table of contents
+    - [ ] Tables:
+        - [ ] add row
+        - [ ] delete row, more or less unnecessary
+        - [ ] add column
+        - [ ] delete column
+ 
+* [>] completion
+    - [x] for LinkReference with list of Definitions (triggered with `[`)
+    - [x] for FootnoteReference with list of FootnoteDefinition (triggered
+        with `^`)
+    - [ ] Links
 
-* [ ] completion
 
-
-[^heading]: `# Heading`
+[^heading]: `# ...`
 [^link]: `[...](...)`
 [^link-ref]: `[...][...]`
 [^footnote-ref]: `[^...]`

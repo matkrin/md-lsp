@@ -57,11 +57,10 @@
         with `^`)
     - [ ] Links
 
-
-[^heading]: `# ...`
-[^link]: `[...](...)`
-[^link-ref]: `[...][...]`
-[^footnote-ref]: `[^...]`
-[^wikilink]: `[[...]]`
-[^definition]: `[...]: ...`
-[^footnote-def]: `[^...]: ...`
+[^heading]: Heading: `# ...`
+[^link]: Link: `[...](...)`
+[^link-ref]: LinkReference: `[...][...]`
+[^footnote-ref]: FootnoteReference: `[^...]`
+[^wikilink]: Wikilink: `[[...]]`
+[^definition]: Definition: `[...]: ...`
+[^footnote-def]: FootnoteDefinition: `[^...]: ...`

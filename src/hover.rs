@@ -74,7 +74,7 @@ pub fn hov_handle_footnote_reference(
     state: &State,
 ) -> Option<String> {
     let ast = state.ast_for_uri(req_uri)?;
-    let footnote_def_node = find_def_for_footnote_ref(ast, footnote_ref)?;
+    let footnote_def_node = find_footnote_def_for_footnote_ref(ast, footnote_ref)?;
     footnote_def_node.position.as_ref().and_then(|pos| {
         let range = range_from_position(pos);
         state.buffer_range_for_uri(req_uri, &range)
@@ -91,7 +91,7 @@ fn find_def_for_link_ref<'a>(node: &'a Node, link_ref: &LinkReference) -> Option
     traverse_ast!(node, find_def_for_link_ref, link_ref)
 }
 
-fn find_def_for_footnote_ref<'a>(
+fn find_footnote_def_for_footnote_ref<'a>(
     node: &'a Node,
     foot_ref: &FootnoteReference,
 ) -> Option<&'a FootnoteDefinition> {
@@ -101,10 +101,10 @@ fn find_def_for_footnote_ref<'a>(
         }
     }
 
-    traverse_ast!(node, find_def_for_footnote_ref, foot_ref)
+    traverse_ast!(node, find_footnote_def_for_footnote_ref, foot_ref)
 }
 
-fn find_next_heading(node: &Node, end_line: usize, depth: u8) -> Option<&Heading> {
+pub fn find_next_heading(node: &Node, end_line: usize, depth: u8) -> Option<&Heading> {
     if let Node::Heading(heading) = node {
         if let Some(pos) = &heading.position {
             if end_line < pos.start.line && depth == heading.depth {

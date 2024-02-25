@@ -1,4 +1,8 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use ignore::Walk;
 use itertools::Itertools;
@@ -107,5 +111,34 @@ impl State {
             })
             .join("\n");
         Some(sliced)
+    }
+
+    pub fn peek_behind_position(&self, uri: &Url, pos: &lsp_types::Position) -> Option<char> {
+        let doc = self.buffer_for_uri(uri)?;
+        let line = doc.lines().nth(pos.line as usize)?;
+        line.chars().nth((pos.character.checked_sub(2))? as usize)
+    }
+
+    pub fn get_file_list(&self, req_uri: &Url) -> Vec<String> {
+        log::info!("WORKSPACE FOLDER {:?}", self.workspace_folder);
+        self.md_files
+            .keys()
+            .filter(|url| url != &req_uri)
+            .filter_map(|url| {
+                self.workspace_folder.as_ref().and_then(|wsf| {
+                    let root = PathBuf::from(&wsf.name);
+                    let file_path = url.to_file_path().ok()?;
+                    relative_path(&root, &file_path)
+                })
+            })
+            .collect()
+    }
+}
+
+fn relative_path(from: &Path, to: &Path) -> Option<String> {
+    if let Ok(rel) = to.strip_prefix(from) {
+        Some(rel.to_string_lossy().into_owned())
+    } else {
+        None
     }
 }

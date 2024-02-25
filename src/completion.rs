@@ -1,49 +1,146 @@
-use lsp_types::{CompletionItem, CompletionItemKind, CompletionList, CompletionParams, Url};
-use markdown::mdast::{FootnoteDefinition, Node, Paragraph, Text};
+use std::path::{Path, PathBuf};
+
+use lsp_types::{CompletionItem, CompletionItemKind, CompletionList, CompletionParams, Position, Range, Url};
+use markdown::mdast::{FootnoteDefinition, Node, Text};
 
 use crate::{
-    ast::{find_defintions, find_footnote_definitions, find_link_references},
-    state::State,
+    ast::{find_defintions, find_footnote_definitions, find_headings, get_heading_text},  hover::find_next_heading, state::State
 };
 
 pub fn completion(params: CompletionParams, state: &State) -> Option<CompletionList> {
     let req_uri = params.text_document_position.text_document.uri;
     let position = params.text_document_position.position;
+    let peek_behind = state.peek_behind_position(&req_uri, &position);
+    log::info!("PEEK BEHIND: {:?}", peek_behind);
     let context = params.context?;
-    let trigger_kind = context.trigger_kind;
+    // let trigger_kind = context.trigger_kind;
     let trigger_character = context.trigger_character;
     match trigger_character.as_deref() {
+        Some("(") if peek_behind == Some(']') => link_completion(&req_uri, state),
+        Some("[") if peek_behind == Some('[') => wikilink_completion(&req_uri, state),
+        Some("^") if peek_behind == Some('[') => footnote_ref_completion(&req_uri, state),
         Some("[") => link_ref_completion(&req_uri, state),
-        Some("^") => footnote_ref_completion(&req_uri, state),
         _ => None,
     }
 }
 
+fn link_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
+    let file_list = state.get_file_list(req_uri);
+    let root_uri = PathBuf::from(&state.workspace_folder()?.name);
+    let completion_items: Option<Vec<CompletionItem>> = state
+        .md_files
+        .iter()
+        .flat_map(|(url, md_file)| {
+            let headings = find_headings(&md_file.ast);
+            headings.into_iter().map(|heading| {
+                let file_path = url.to_file_path().ok()?;
+                let relative_path = relative_path(&root_uri, &file_path)?;
+                let heading_text = get_heading_text(heading)?;
+                let heading_pos = heading.position.as_ref()?;
+                let range = if let Some(next_heading) = find_next_heading(&md_file.ast, heading_pos.end.line, heading.depth) {
+                    Range {
+                        start: Position {
+                            line: (heading_pos.start.line - 1) as u32,
+                            character: (heading_pos.start.column - 1) as u32,
+                        },
+                        end: Position {
+                            line: next_heading.position.as_ref()?.start.line as u32,
+                            character: next_heading.position.as_ref()?.end.line as u32,
+                        }
+                    }
+                } else {
+                    Range {
+                        start: Position {
+                            line: (heading_pos.start.line - 1) as u32,
+                            character: (heading_pos.start.column -1) as u32,
+                        },
+                        end: Position {
+                            line: 999999,
+                            character: 999999,
+                        }
+                    }
+                };
+                let detail = state.buffer_range_for_uri(url, &range)?;
+                Some(CompletionItem {
+                    label: format!("{}#{}", relative_path, heading_text.to_lowercase().replace(' ', "-")),
+                    kind: Some(CompletionItemKind::TEXT),
+                    detail: Some(detail),
+                    ..CompletionItem::default()
+                })
+            })
+        })
+        .collect();
+    log::info!("FILE LIST : {:?}", file_list);
+    completion_items.map(|comp_items| CompletionList {
+        is_incomplete: true,
+        items: comp_items,
+    })
+}
+
+fn wikilink_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
+    let file_list = state.get_file_list(req_uri);
+    let root_uri = PathBuf::from(&state.workspace_folder()?.name);
+    let completion_items: Option<Vec<CompletionItem>> = state
+        .md_files
+        .iter()
+        .flat_map(|(url, md_file)| {
+            let headings = find_headings(&md_file.ast);
+            headings.into_iter().map(|heading| {
+                let file_path = url.to_file_path().ok()?;
+                let relative_path = relative_path(&root_uri, &file_path)?;
+                let path = relative_path.split_once('.')?.0;
+                let heading_text = get_heading_text(heading)?;
+                let heading_pos = heading.position.as_ref()?;
+                let range = if let Some(next_heading) = find_next_heading(&md_file.ast, heading_pos.end.line, heading.depth) {
+                    Range {
+                        start: Position {
+                            line: (heading_pos.start.line - 1) as u32,
+                            character: (heading_pos.start.column -1 ) as u32,
+                        },
+                        end: Position {
+                            line: next_heading.position.as_ref()?.start.line as u32,
+                            character: next_heading.position.as_ref()?.end.line as u32,
+                        }
+                    }
+                } else {
+                    Range {
+                        start: Position {
+                            line: (heading_pos.start.line - 1)as u32,
+                            character: (heading_pos.start.column - 1) as u32,
+                        },
+                        end: Position {
+                            line: 999999,
+                            character: 999999,
+                        }
+                    }
+                };
+                let detail = state.buffer_range_for_uri(url, &range)?;
+                Some(CompletionItem {
+                    label: format!("{}#{}", path, heading_text),
+                    kind: Some(CompletionItemKind::TEXT),
+                    detail: Some(detail),
+                    ..CompletionItem::default()
+                })
+            })
+        })
+        .collect();
+    log::info!("FILE LIST : {:?}", file_list);
+    completion_items.map(|comp_items| CompletionList {
+        is_incomplete: true,
+        items: comp_items,
+    })
+}
+
 fn link_ref_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
     let ast = state.ast_for_uri(req_uri)?;
-    // let link_refs = find_link_references(ast);
     let definitions = find_defintions(ast);
     let def_completion_items = definitions
         .into_iter()
         .map(|def| CompletionItem {
             label: def.identifier.clone(),
-            label_details: None,
             kind: Some(CompletionItemKind::TEXT),
             detail: Some(def.url.clone()),
-            documentation: None,
-            deprecated: None,
-            preselect: None,
-            sort_text: None,
-            filter_text: None,
-            insert_text: None,
-            insert_text_format: None,
-            insert_text_mode: None,
-            text_edit: None,
-            additional_text_edits: None,
-            command: None,
-            commit_characters: None,
-            data: None,
-            tags: None,
+            ..CompletionItem::default()
         })
         .collect();
     Some(CompletionList {
@@ -58,27 +155,12 @@ fn footnote_ref_completion(req_uri: &Url, state: &State) -> Option<CompletionLis
     let completion_items: Option<Vec<CompletionItem>> = footnote_defs
         .into_iter()
         .map(|footnote_def| {
-            get_footnote_def_text(footnote_def).map(|text| {
-                CompletionItem {
-                    label: footnote_def.identifier.clone(),
-                    label_details: None,
-                    kind: Some(CompletionItemKind::TEXT),
-                    detail: Some(text.value.clone()),
-                    documentation: None,
-                    deprecated: None,
-                    preselect: None,
-                    sort_text: None,
-                    filter_text: None,
-                    insert_text: None,
-                    insert_text_format: None,
-                    insert_text_mode: None,
-                    text_edit: None,
-                    additional_text_edits: None,
-                    command: None,
-                    commit_characters: None,
-                    data: None,
-                    tags: None,
-                }
+            get_footnote_def_text(footnote_def).map(|text| CompletionItem {
+                label: footnote_def.identifier.clone(),
+                label_details: None,
+                kind: Some(CompletionItemKind::TEXT),
+                detail: Some(text.value.clone()),
+                ..CompletionItem::default()
             })
         })
         .collect();
@@ -93,10 +175,18 @@ fn get_footnote_def_text(footnote_def: &FootnoteDefinition) -> Option<&Text> {
         if let Node::Paragraph(paragraph) = child {
             for text in &paragraph.children {
                 if let Node::Text(text) = text {
-                    return Some(text)
+                    return Some(text);
                 }
             }
         }
     }
     None
+}
+
+fn relative_path(from: &Path, to: &Path) -> Option<String> {
+    if let Ok(rel) = to.strip_prefix(from) {
+        Some(rel.to_string_lossy().into_owned())
+    } else {
+        None
+    }
 }

@@ -1,14 +1,21 @@
-use lsp_types::{Range, Url};
-use markdown::mdast::{Definition, FootnoteReference, Heading, Link, LinkReference, Node};
+use lsp_types::Url;
+use markdown::mdast::{
+    Definition, FootnoteDefinition, FootnoteReference, Heading, Link, LinkReference, Node,
+};
 
-use crate::{ast::find_heading_for_url, definition::range_from_position, links::resolve_link, state::State, traverse_ast};
+use crate::{
+    ast::find_heading_for_url, definition::range_from_position, links::resolve_link, state::State,
+    traverse_ast,
+};
 
-pub fn get_target_heading_uri<'a>(req_uri: &Url, link: &'a Link, state: &'a State) -> (Url, Option<&'a str>) {
+pub fn get_target_heading_uri<'a>(
+    req_uri: &Url,
+    link: &'a Link,
+    state: &'a State,
+) -> (Url, Option<&'a str>) {
     match &state.workspace_folder() {
         Some(_) => match resolve_link(link, state) {
-            Some(rl) => {
-                (rl.uri, rl.heading)
-            }
+            Some(rl) => (rl.uri, rl.heading),
             None => (req_uri.clone(), Some(&link.url)),
         },
         _ => (req_uri.clone(), Some(&link.url)),
@@ -48,10 +55,17 @@ fn handle_link_other_file(target_uri: &Url, state: &State) -> Option<String> {
     state.buffer_for_uri(target_uri).map(ToString::to_string)
 }
 
-pub fn hov_handle_link_reference(ast: &Node, link_ref: &LinkReference) -> Option<String> {
-    let def = find_def_for_link_ref(ast, link_ref);
-
-    def.map(|d| format!("[{}]: {}", d.identifier, d.url))
+pub fn hov_handle_link_reference(
+    req_uri: &Url,
+    link_ref: &LinkReference,
+    state: &State,
+) -> Option<String> {
+    let ast = state.ast_for_uri(req_uri)?;
+    let def = find_def_for_link_ref(ast, link_ref)?;
+    def.position.as_ref().and_then(|pos| {
+        let range = range_from_position(pos);
+        state.buffer_range_for_uri(req_uri, &range)
+    })
 }
 
 pub fn hov_handle_footnote_reference(
@@ -60,15 +74,11 @@ pub fn hov_handle_footnote_reference(
     state: &State,
 ) -> Option<String> {
     let ast = state.ast_for_uri(req_uri)?;
-    let def_node = find_def_for_footnote_ref(ast, footnote_ref)?;
-    log::info!("DEF NODE: {:?}", def_node);
-    def_node.position().and_then(|pos| {
+    let footnote_def_node = find_def_for_footnote_ref(ast, footnote_ref)?;
+    footnote_def_node.position.as_ref().and_then(|pos| {
         let range = range_from_position(pos);
         state.buffer_range_for_uri(req_uri, &range)
     })
-    // let footnote_identifier = get_footnote_identifier(def_node)?;
-    // let footnote_text = get_footnote_def_text(def_node)?;
-    // Some(format!("[^{}]: {}", footnote_identifier, footnote_text))
 }
 
 fn find_def_for_link_ref<'a>(node: &'a Node, link_ref: &LinkReference) -> Option<&'a Definition> {
@@ -81,38 +91,17 @@ fn find_def_for_link_ref<'a>(node: &'a Node, link_ref: &LinkReference) -> Option
     traverse_ast!(node, find_def_for_link_ref, link_ref)
 }
 
-fn find_def_for_footnote_ref<'a>(node: &'a Node, foot_ref: &FootnoteReference) -> Option<&'a Node> {
+fn find_def_for_footnote_ref<'a>(
+    node: &'a Node,
+    foot_ref: &FootnoteReference,
+) -> Option<&'a FootnoteDefinition> {
     if let Node::FootnoteDefinition(def) = node {
         if foot_ref.identifier == def.identifier {
-            return Some(node);
+            return Some(def);
         }
     }
 
     traverse_ast!(node, find_def_for_footnote_ref, foot_ref)
-}
-
-fn get_footnote_identifier(node: &Node) -> Option<String> {
-    if let Node::FootnoteDefinition(def) = node {
-        return Some(def.identifier.clone());
-    }
-    None
-}
-
-fn get_footnote_def_text(node: &Node) -> Option<String> {
-    if let Node::Text(t) = node {
-        return Some(t.value.clone());
-    }
-    // // recurse through children
-    // if let Some(children) = node.children() {
-    //     for child in children {
-    //         if let Some(n) = get_footnote_def_text(child) {
-    //             return Some(n);
-    //         }
-    //     }
-    // }
-    // None
-    // traverse_ast(node, get_footnote_def_text)
-    traverse_ast!(node, get_footnote_def_text)
 }
 
 fn find_next_heading(node: &Node, end_line: usize, depth: u8) -> Option<&Heading> {

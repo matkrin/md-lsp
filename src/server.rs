@@ -208,7 +208,9 @@ impl Server {
         let message = match node {
             Some(n) => match n {
                 Node::Link(link) => hov_handle_link(&req_uri, link, state),
-                Node::LinkReference(link_ref) => hov_handle_link_reference(req_ast, link_ref),
+                Node::LinkReference(link_ref) => {
+                    hov_handle_link_reference(&req_uri, link_ref, state)
+                }
                 Node::FootnoteReference(foot_ref) => {
                     hov_handle_footnote_reference(&req_uri, foot_ref, state)
                 }

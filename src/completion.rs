@@ -1,10 +1,14 @@
 use std::path::{Path, PathBuf};
 
-use lsp_types::{CompletionItem, CompletionItemKind, CompletionList, CompletionParams, Position, Range, Url};
-use markdown::mdast::{FootnoteDefinition, Node, Text};
+use lsp_types::{
+    CompletionItem, CompletionItemKind, CompletionList, CompletionParams, Position, Range, Url,
+};
+use markdown::mdast::{FootnoteDefinition, Heading, Node, Text};
 
 use crate::{
-    ast::{find_defintions, find_footnote_definitions, find_headings, get_heading_text},  hover::find_next_heading, state::State
+    ast::{find_defintions, find_footnote_definitions, find_headings, get_heading_text},
+    hover::find_next_heading,
+    state::State,
 };
 
 pub fn completion(params: CompletionParams, state: &State) -> Option<CompletionList> {
@@ -36,33 +40,14 @@ fn link_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
                 let file_path = url.to_file_path().ok()?;
                 let relative_path = relative_path(&root_uri, &file_path)?;
                 let heading_text = get_heading_text(heading)?;
-                let heading_pos = heading.position.as_ref()?;
-                let range = if let Some(next_heading) = find_next_heading(&md_file.ast, heading_pos.end.line, heading.depth) {
-                    Range {
-                        start: Position {
-                            line: (heading_pos.start.line - 1) as u32,
-                            character: (heading_pos.start.column - 1) as u32,
-                        },
-                        end: Position {
-                            line: next_heading.position.as_ref()?.start.line as u32,
-                            character: next_heading.position.as_ref()?.end.line as u32,
-                        }
-                    }
-                } else {
-                    Range {
-                        start: Position {
-                            line: (heading_pos.start.line - 1) as u32,
-                            character: (heading_pos.start.column -1) as u32,
-                        },
-                        end: Position {
-                            line: 999999,
-                            character: 999999,
-                        }
-                    }
-                };
+                let range = link_detail_range(&md_file.ast, heading)?;
                 let detail = state.buffer_range_for_uri(url, &range)?;
                 Some(CompletionItem {
-                    label: format!("{}#{}", relative_path, heading_text.to_lowercase().replace(' ', "-")),
+                    label: format!(
+                        "{}#{}",
+                        relative_path,
+                        heading_text.to_lowercase().replace(' ', "-")
+                    ),
                     kind: Some(CompletionItemKind::TEXT),
                     detail: Some(detail),
                     ..CompletionItem::default()
@@ -70,7 +55,6 @@ fn link_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
             })
         })
         .collect();
-    log::info!("FILE LIST : {:?}", file_list);
     completion_items.map(|comp_items| CompletionList {
         is_incomplete: true,
         items: comp_items,
@@ -90,30 +74,7 @@ fn wikilink_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
                 let relative_path = relative_path(&root_uri, &file_path)?;
                 let path = relative_path.split_once('.')?.0;
                 let heading_text = get_heading_text(heading)?;
-                let heading_pos = heading.position.as_ref()?;
-                let range = if let Some(next_heading) = find_next_heading(&md_file.ast, heading_pos.end.line, heading.depth) {
-                    Range {
-                        start: Position {
-                            line: (heading_pos.start.line - 1) as u32,
-                            character: (heading_pos.start.column -1 ) as u32,
-                        },
-                        end: Position {
-                            line: next_heading.position.as_ref()?.start.line as u32,
-                            character: next_heading.position.as_ref()?.end.line as u32,
-                        }
-                    }
-                } else {
-                    Range {
-                        start: Position {
-                            line: (heading_pos.start.line - 1)as u32,
-                            character: (heading_pos.start.column - 1) as u32,
-                        },
-                        end: Position {
-                            line: 999999,
-                            character: 999999,
-                        }
-                    }
-                };
+                let range = link_detail_range(&md_file.ast, heading)?;
                 let detail = state.buffer_range_for_uri(url, &range)?;
                 Some(CompletionItem {
                     label: format!("{}#{}", path, heading_text),
@@ -124,11 +85,36 @@ fn wikilink_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
             })
         })
         .collect();
-    log::info!("FILE LIST : {:?}", file_list);
     completion_items.map(|comp_items| CompletionList {
         is_incomplete: true,
         items: comp_items,
     })
+}
+
+fn link_detail_range(ast: &Node, heading: &Heading) -> Option<Range> {
+    let heading_pos = heading.position.as_ref()?;
+    match find_next_heading(ast, heading_pos.end.line, heading.depth) {
+        Some(next_heading) => Some(Range {
+            start: Position {
+                line: (heading_pos.start.line - 1) as u32,
+                character: (heading_pos.start.column - 1) as u32,
+            },
+            end: Position {
+                line: next_heading.position.as_ref()?.start.line as u32,
+                character: next_heading.position.as_ref()?.end.line as u32,
+            },
+        }),
+        None => Some(Range {
+            start: Position {
+                line: (heading_pos.start.line - 1) as u32,
+                character: (heading_pos.start.column - 1) as u32,
+            },
+            end: Position {
+                line: 999999,
+                character: 999999,
+            },
+        }),
+    }
 }
 
 fn link_ref_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {

@@ -10,9 +10,9 @@ use lsp_types::{
 };
 use markdown::mdast::Node;
 
-use crate::ast::{find_definition_for_position, find_headings, find_link_for_position};
+use crate::ast::{find_definition_for_position, find_link_for_position};
 use crate::code_actions::code_actions;
-use crate::completion::{self, completion};
+use crate::completion::completion;
 use crate::definition::{
     def_handle_link_footnote, def_handle_link_ref, def_handle_link_to_heading,
 };

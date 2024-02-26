@@ -51,11 +51,12 @@
         - [ ] add column
         - [ ] delete column
  
-* [>] completion
+* [x] completion
     - [x] for LinkReference with list of Definitions (triggered with `[`)
     - [x] for FootnoteReference with list of FootnoteDefinition (triggered
         with `^`)
-    - [ ] Links
+    - [x] Links (needs refactoring)
+    - [x] Wikilinks (needs refactoring)
 
 [^heading]: Heading: `# ...`
 [^link]: Link: `[...](...)`

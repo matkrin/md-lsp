@@ -54,9 +54,9 @@
 * [x] completion
     - [x] for LinkReference with list of Definitions (triggered with `[`)
     - [x] for FootnoteReference with list of FootnoteDefinition (triggered
-        with `^`)
-    - [x] Links (needs refactoring)
-    - [x] Wikilinks (needs refactoring)
+        with `[^`)
+    - [x] Links (triggered with `](`)
+    - [x] Wikilinks (triggered with `[[`)
 
 [^heading]: Heading: `# ...`
 [^link]: Link: `[...](...)`

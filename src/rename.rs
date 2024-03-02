@@ -34,77 +34,73 @@ pub fn rename(
 ) -> Option<HashMap<Url, Vec<TextEdit>>> {
     let node = state
         .ast_for_uri(req_uri)
-        .and_then(|ast| find_renameable_for_position(ast, req_pos));
+        .and_then(|ast| find_renameable_for_position(ast, req_pos))?;
 
-    if let Some(node) = node {
-        match node {
-            Node::Heading(heading) => {
-                let mut ref_changes = rename_heading_refs(new_name, req_uri, heading, state);
-                if let Some(range) = heading_rename_range(heading) {
-                    let heading_change = TextEdit {
-                        range,
-                        new_text: new_name.to_string(),
-                    };
-                    ref_changes
-                        .entry(req_uri.clone())
-                        .or_default()
-                        .push(heading_change);
-                }
-                Some(ref_changes)
+    match node {
+        Node::Heading(heading) => {
+            let mut ref_changes = rename_heading_refs(new_name, req_uri, heading, state);
+            if let Some(range) = heading_rename_range(heading) {
+                let heading_change = TextEdit {
+                    range,
+                    new_text: new_name.to_string(),
+                };
+                ref_changes
+                    .entry(req_uri.clone())
+                    .or_default()
+                    .push(heading_change);
             }
-            Node::LinkReference(link_ref) => {
-                let mut def_changes = rename_definition(new_name, req_uri, link_ref, state);
-                let link_ref_changes =
-                    rename_link_refs(new_name, req_uri, &link_ref.identifier, state)?;
-                merge_maps(&mut def_changes, link_ref_changes);
-                Some(def_changes)
-            }
-            Node::Definition(definition) => {
-                rename_link_refs(new_name, req_uri, &definition.identifier, state).map(
-                    |mut link_ref_changes| {
-                        if let Some(range) = definition_rename_range(definition) {
-                            let definition_change = TextEdit {
-                                range,
-                                new_text: new_name.to_string(),
-                            };
-                            link_ref_changes
-                                .entry(req_uri.clone())
-                                .or_default()
-                                .push(definition_change);
-                        }
-                        link_ref_changes
-                    },
-                )
-            }
-            Node::FootnoteReference(footnote_ref) => {
-                let mut footnote_def_changes =
-                    rename_footnote_def(new_name, req_uri, footnote_ref, state);
-                let footnote_ref_changes =
-                    rename_footnote_refs(new_name, req_uri, &footnote_ref.identifier, state)?;
-                merge_maps(&mut footnote_def_changes, footnote_ref_changes);
-                Some(footnote_def_changes)
-            }
-            Node::FootnoteDefinition(footnote_def) => {
-                rename_footnote_refs(new_name, req_uri, &footnote_def.identifier, state).map(
-                    |mut footnote_ref_changes| {
-                        if let Some(range) = footnote_def_rename_range(footnote_def) {
-                            let footnote_def_change = TextEdit {
-                                range,
-                                new_text: new_name.to_string(),
-                            };
-                            footnote_ref_changes
-                                .entry(req_uri.clone())
-                                .or_default()
-                                .push(footnote_def_change);
-                        }
-                        footnote_ref_changes
-                    },
-                )
-            }
-            _ => unreachable!(),
+            Some(ref_changes)
         }
-    } else {
-        None
+        Node::LinkReference(link_ref) => {
+            let mut def_changes = rename_definition(new_name, req_uri, link_ref, state);
+            let link_ref_changes =
+                rename_link_refs(new_name, req_uri, &link_ref.identifier, state)?;
+            merge_maps(&mut def_changes, link_ref_changes);
+            Some(def_changes)
+        }
+        Node::Definition(definition) => {
+            rename_link_refs(new_name, req_uri, &definition.identifier, state).map(
+                |mut link_ref_changes| {
+                    if let Some(range) = definition_rename_range(definition) {
+                        let definition_change = TextEdit {
+                            range,
+                            new_text: new_name.to_string(),
+                        };
+                        link_ref_changes
+                            .entry(req_uri.clone())
+                            .or_default()
+                            .push(definition_change);
+                    }
+                    link_ref_changes
+                },
+            )
+        }
+        Node::FootnoteReference(footnote_ref) => {
+            let mut footnote_def_changes =
+                rename_footnote_def(new_name, req_uri, footnote_ref, state);
+            let footnote_ref_changes =
+                rename_footnote_refs(new_name, req_uri, &footnote_ref.identifier, state)?;
+            merge_maps(&mut footnote_def_changes, footnote_ref_changes);
+            Some(footnote_def_changes)
+        }
+        Node::FootnoteDefinition(footnote_def) => {
+            rename_footnote_refs(new_name, req_uri, &footnote_def.identifier, state).map(
+                |mut footnote_ref_changes| {
+                    if let Some(range) = footnote_def_rename_range(footnote_def) {
+                        let footnote_def_change = TextEdit {
+                            range,
+                            new_text: new_name.to_string(),
+                        };
+                        footnote_ref_changes
+                            .entry(req_uri.clone())
+                            .or_default()
+                            .push(footnote_def_change);
+                    }
+                    footnote_ref_changes
+                },
+            )
+        }
+        _ => unreachable!(),
     }
 }
 
@@ -269,7 +265,6 @@ fn rename_heading_refs(
     )
 }
 
-// Definition { position: Some(123:1-123:34 (1519-1552)), url: "https://google.com", title: None, identifier: "google-link", label: Some("google-link") }
 /// There is always one definition, which is in same file as the request, I asume
 fn rename_definition(
     new_name: &str,
@@ -294,7 +289,6 @@ fn rename_definition(
     definition_changes
 }
 
-//LinkReference { children: [Text { value: "github", position: Some(113:22-113:28 (1404-1410)) }], position: Some(113:21-113:42 (1403-1424)), reference_kind: Full, identifier: "github-link", label: │ md_lsp::server      │ 1708242944695 │ │      │       │  Some("github-link") })
 /// LinkReferences also only in same document
 fn rename_link_refs(
     new_name: &str,
@@ -302,25 +296,22 @@ fn rename_link_refs(
     identifier: &str,
     state: &State,
 ) -> Option<HashMap<Url, Vec<TextEdit>>> {
-    if let Some(ast) = state.ast_for_uri(req_uri) {
-        let link_refs = find_link_references_for_identifier(ast, identifier);
-        let link_refs = link_refs.into_iter().fold(
-            HashMap::new(),
-            |mut acc: HashMap<Url, Vec<TextEdit>>, link_ref| {
-                if let Some(range) = link_ref_rename_range(link_ref) {
-                    let text_edit = TextEdit {
-                        range,
-                        new_text: new_name.to_string(),
-                    };
-                    acc.entry(req_uri.clone()).or_default().push(text_edit);
-                }
-                acc
-            },
-        );
-        Some(link_refs)
-    } else {
-        None
-    }
+    let ast = state.ast_for_uri(req_uri)?;
+    let link_refs = find_link_references_for_identifier(ast, identifier);
+    let link_refs = link_refs.into_iter().fold(
+        HashMap::new(),
+        |mut acc: HashMap<Url, Vec<TextEdit>>, link_ref| {
+            if let Some(range) = link_ref_rename_range(link_ref) {
+                let text_edit = TextEdit {
+                    range,
+                    new_text: new_name.to_string(),
+                };
+                acc.entry(req_uri.clone()).or_default().push(text_edit);
+            }
+            acc
+        },
+    );
+    Some(link_refs)
 }
 
 fn rename_footnote_def(
@@ -348,32 +339,28 @@ fn rename_footnote_def(
     footnote_def_changes
 }
 
-//FootnoteReference { position: Some(102:19-102:35 (1171-1187)), identifier: "text-footnote", label: Some("text-footnote") })
 fn rename_footnote_refs(
     new_name: &str,
     req_uri: &Url,
     identifier: &str,
     state: &State,
 ) -> Option<HashMap<Url, Vec<TextEdit>>> {
-    if let Some(ast) = state.ast_for_uri(req_uri) {
-        let footnote_refs = find_footnote_references_for_identifier(ast, identifier);
-        let footnote_refs = footnote_refs.into_iter().fold(
-            HashMap::new(),
-            |mut acc: HashMap<Url, Vec<TextEdit>>, footnote_ref| {
-                if let Some(range) = footnote_ref_rename_range(footnote_ref) {
-                    let text_edit = TextEdit {
-                        range,
-                        new_text: new_name.to_string(),
-                    };
-                    acc.entry(req_uri.clone()).or_default().push(text_edit);
-                }
-                acc
-            },
-        );
-        Some(footnote_refs)
-    } else {
-        None
-    }
+    let ast = state.ast_for_uri(req_uri)?;
+    let footnote_refs = find_footnote_references_for_identifier(ast, identifier);
+    let footnote_refs = footnote_refs.into_iter().fold(
+        HashMap::new(),
+        |mut acc: HashMap<Url, Vec<TextEdit>>, footnote_ref| {
+            if let Some(range) = footnote_ref_rename_range(footnote_ref) {
+                let text_edit = TextEdit {
+                    range,
+                    new_text: new_name.to_string(),
+                };
+                acc.entry(req_uri.clone()).or_default().push(text_edit);
+            }
+            acc
+        },
+    );
+    Some(footnote_refs)
 }
 
 fn merge_maps<T, U>(map1: &mut HashMap<T, Vec<U>>, map2: HashMap<T, Vec<U>>)

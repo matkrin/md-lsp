@@ -20,22 +20,6 @@ impl<'a> ResolvedLink<'a> {
         Self { heading, uri }
     }
 
-    // fn from_request(
-    //     root_path: PathBuf,
-    //     linked_file: &'a str,
-    //     heading_text: Option<&'a str>,
-    // ) -> Option<ResolvedLink<'a>> {
-    //     let file = if linked_file.ends_with(".md") {
-    //         linked_file.to_string()
-    //     } else {
-    //         format!("{}.md", linked_file)
-    //     };
-    //     let full_path = root_path.join(file);
-    //     Url::from_file_path(full_path)
-    //         .ok()
-    //         .map(|u| ResolvedLink::new(heading_text, u))
-    // }
-
     pub fn from_state(
         linked_file: &'a str,
         heading_text: Option<&'a str>,

@@ -89,6 +89,7 @@ impl State {
     }
 
     pub fn buffer_range_for_uri(&self, uri: &Url, range: &Range) -> Option<String> {
+        log::info!("CALLED");
         let doc = self.buffer_for_uri(uri)?;
         let start_line = range.start.line as usize;
         let end_line = range.end.line as usize;

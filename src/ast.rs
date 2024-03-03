@@ -257,3 +257,38 @@ pub fn get_heading_text(heading: &Heading) -> Option<&str> {
     }
     None
 }
+
+pub fn find_next_heading(node: &Node, end_line: usize, depth: u8) -> Option<&Heading> {
+    if let Node::Heading(heading) = node {
+        if let Some(pos) = &heading.position {
+            if end_line < pos.start.line && depth == heading.depth {
+                return Some(heading);
+            }
+        }
+    }
+
+    traverse_ast!(node, find_next_heading, end_line, depth)
+}
+
+pub fn find_def_for_link_ref<'a>(node: &'a Node, link_ref: &LinkReference) -> Option<&'a Definition> {
+    if let Node::Definition(def) = node {
+        if link_ref.identifier == def.identifier {
+            return Some(def);
+        }
+    }
+
+    traverse_ast!(node, find_def_for_link_ref, link_ref)
+}
+
+pub fn find_footnote_def_for_footnote_ref<'a>(
+    node: &'a Node,
+    foot_ref: &FootnoteReference,
+) -> Option<&'a FootnoteDefinition> {
+    if let Node::FootnoteDefinition(def) = node {
+        if foot_ref.identifier == def.identifier {
+            return Some(def);
+        }
+    }
+
+    traverse_ast!(node, find_footnote_def_for_footnote_ref, foot_ref)
+}

@@ -6,8 +6,7 @@ use lsp_types::{
 use markdown::mdast::{FootnoteDefinition, Heading, Node, Text};
 
 use crate::{
-    ast::{find_defintions, find_footnote_definitions, find_headings, get_heading_text},
-    hover::find_next_heading,
+    ast::{find_defintions, find_footnote_definitions, find_headings, find_next_heading, get_heading_text},
     state::State,
 };
 

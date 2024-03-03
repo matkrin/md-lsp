@@ -115,12 +115,12 @@ fn find_links_in<'a>(
 ) -> Vec<FoundLink<'a>> {
     let file_path = req_uri.to_file_path().unwrap();
     let file_name = file_path.file_stem();
-    let mut heading_refs = Vec::new();
+    let mut found_links = Vec::new();
     if let Some(f_name) = file_name {
         match node {
             // Link to a file
             Node::Link(link) if link.url.as_str() == f_name => {
-                heading_refs.push(FoundLink::File {
+                found_links.push(FoundLink::File {
                     link,
                     uri: target_uri,
                 });
@@ -132,7 +132,7 @@ fn find_links_in<'a>(
                     if heading_text == ht
                         || heading_text.to_lowercase().replace(' ', "-") == ht =>
                 {
-                    heading_refs.push(FoundLink::InternalHeading {
+                    found_links.push(FoundLink::InternalHeading {
                         link,
                         uri: target_uri,
                         heading_text: ht,
@@ -144,7 +144,7 @@ fn find_links_in<'a>(
                         || heading_text.to_lowercase().replace(' ', "-") == ht)
                         && f_name == file_name =>
                 {
-                    heading_refs.push(FoundLink::ExternalHeading {
+                    found_links.push(FoundLink::ExternalHeading {
                         link,
                         uri: target_uri,
                         heading_text: ht,
@@ -155,11 +155,11 @@ fn find_links_in<'a>(
             _ => {
                 if let Some(children) = node.children() {
                     for child in children {
-                        heading_refs.extend(find_links_in(child, heading_text, req_uri, target_uri))
+                        found_links.extend(find_links_in(child, heading_text, req_uri, target_uri))
                     }
                 }
             }
         }
     }
-    heading_refs
+    found_links
 }

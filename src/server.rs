@@ -4,9 +4,8 @@ use lsp_types::{
     CodeActionParams, CompletionParams, Diagnostic, DiagnosticSeverity,
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
     DocumentFormattingParams, DocumentRangeFormattingParams, DocumentSymbolParams,
-    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverParams, Location, MarkupContent,
-    MarkupKind, Position, PublishDiagnosticsParams, RenameParams, TextDocumentPositionParams, Url,
-    WorkspaceEdit,
+    GotoDefinitionParams, GotoDefinitionResponse, HoverParams, Location, Position as LspPosition,
+    PublishDiagnosticsParams, RenameParams, TextDocumentPositionParams, Url, WorkspaceEdit,
 };
 use markdown::mdast::Node;
 
@@ -18,7 +17,7 @@ use crate::definition::{
 };
 use crate::diagnostics::check_links;
 use crate::formatting::{formatting, range_formatting};
-use crate::hover::{hov_handle_footnote_reference, hov_handle_link, hov_handle_link_reference};
+use crate::hover::hover;
 use crate::references::{handle_definition, handle_footnote_definition, handle_heading};
 use crate::rename::{prepare_rename, rename};
 use crate::state::State;
@@ -31,6 +30,11 @@ pub struct Server {
 impl Server {
     pub fn new(connection: Connection) -> Self {
         Self { connection }
+    }
+
+    fn send(&self, response: lsp_server::Response) -> Result<()> {
+        self.connection.sender.send(Message::Response(response))?;
+        Ok(())
     }
 
     pub fn run(&self, mut state: State) -> Result<()> {
@@ -152,7 +156,7 @@ impl Server {
         let params: GotoDefinitionParams = serde_json::from_value(req.params)?;
         let position_params = params.text_document_position_params;
         let req_uri = position_params.text_document.uri;
-        let Position { line, character } = position_params.position;
+        let LspPosition { line, character } = position_params.position;
         let req_ast = state.ast_for_uri(&req_uri).unwrap();
         let node = find_link_for_position(req_ast, line, character);
 
@@ -197,57 +201,20 @@ impl Server {
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_hover
     fn handle_hover(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
         let params: HoverParams = serde_json::from_value(req.params)?;
-        let position_params = params.text_document_position_params;
-        let req_uri = position_params.text_document.uri;
-        let Position { line, character } = position_params.position;
-
-        let req_ast = state.ast_for_uri(&req_uri).unwrap();
-        let node = find_link_for_position(req_ast, line, character);
-        log::info!("HOVERR NODE : {:?}", node);
-
-        let message = match node {
-            Some(n) => match n {
-                Node::Link(link) => hov_handle_link(&req_uri, link, state),
-                Node::LinkReference(link_ref) => {
-                    hov_handle_link_reference(&req_uri, link_ref, state)
-                }
-                Node::FootnoteReference(foot_ref) => {
-                    hov_handle_footnote_reference(&req_uri, foot_ref, state)
-                }
-                _ => None,
-            },
-            None => None,
-        };
-
-        let result = match message {
-            Some(msg) => {
-                let result = Some(Hover {
-                    contents: lsp_types::HoverContents::Markup(MarkupContent {
-                        kind: MarkupKind::Markdown,
-                        value: msg,
-                    }),
-                    range: None,
-                });
-                serde_json::to_value(result).ok()
-            }
-            None => None,
-        };
-
+        let result = hover(&params, state).and_then(|hov| serde_json::to_value(hov).ok());
         let response = Response {
             id: req.id,
             result,
             error: None,
         };
-        self.connection.sender.send(Message::Response(response))?;
-
-        Ok(())
+        self.send(response)
     }
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_references
     fn handle_references(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
         let params: HoverParams = serde_json::from_value(req.params)?;
         let position_params = params.text_document_position_params;
         let req_uri = position_params.text_document.uri;
-        let Position { line, character } = position_params.position;
+        let LspPosition { line, character } = position_params.position;
 
         let req_ast = state.ast_for_uri(&req_uri).unwrap();
         let node = find_definition_for_position(req_ast, line, character);

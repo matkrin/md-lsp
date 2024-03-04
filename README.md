@@ -6,8 +6,8 @@
 - rename: consistent with autocomplete
 - diagnostics
 
-* [x] hover:
-    - [x] Headings[^heading] 
+* [>] hover:
+    - [ ] Headings[^heading] (should show outline with current heading highlighted)
     - [x] Link[^link]
     - [x] LinkReference[^link-ref]
     - [x] FootnoteReference[^footnote-ref]
@@ -54,6 +54,8 @@
         - [ ] delete row, more or less unnecessary
         - [ ] add column
         - [ ] delete column
+    - [ ] Build HTML
+    - [ ] On Wikilink: replace with canonical link
  
 * [x] completion
     - [x] for LinkReference with list of Definitions (triggered with `[`)

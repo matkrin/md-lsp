@@ -17,6 +17,7 @@ pub fn document_symbols(req_ast: &Node) -> Option<Vec<DocumentSymbol>> {
                 heading.position.as_ref().map(|pos| {
                     let range = range_from_position(pos);
                     let name = add_pounds(heading_text, heading.depth);
+                    #[allow(deprecated)]  // TODO: don't know how else
                     DocumentSymbol {
                         name,
                         detail: None,

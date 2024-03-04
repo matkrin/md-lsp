@@ -1,15 +1,13 @@
-use std::path::PathBuf;
-
 use lsp_types::Url;
 use markdown::{
     mdast::{Heading, Link, Node, Text},
-    unist::{Point, Position},
+    unist::{Point, Position as AstPosition},
 };
 use regex::Regex;
 
 use crate::{
-    ast::{find_heading_for_link, find_heading_for_link_identifier},
-    state::{relative_path, State},
+    ast::{find_heading_for_link, find_heading_for_link_identifier, get_heading_text},
+    state::State,
 };
 
 #[derive(Debug)]
@@ -18,14 +16,30 @@ pub enum MdLink<'a> {
     WikiLink(&'a Link),
 }
 
-impl<'a, 'b> MdLink<'a>
-where
-    'b: 'a,
-{
-    fn new(link: &'b Link) -> Self {
+impl<'a> MdLink<'a> {
+    fn new(link: &'a Link) -> Self {
         match &link.title {
             Some(title) if title == "wikilink" => MdLink::WikiLink(link),
             _ => MdLink::NormalLink(link),
+        }
+    }
+
+    pub fn position(&self) -> Option<&AstPosition> {
+        match self {
+            MdLink::NormalLink(link) | MdLink::WikiLink(link) => link.position.as_ref(),
+        }
+    }
+
+    pub fn title(&self) -> Option<&str> {
+        match self {
+            MdLink::NormalLink(link) | MdLink::WikiLink(link) => link.title.as_deref(),
+        }
+    }
+
+    pub fn is_wikilink(&self) -> bool {
+        match self {
+            MdLink::NormalLink(_) => false,
+            MdLink::WikiLink(_) => true,
         }
     }
 }
@@ -34,51 +48,54 @@ where
 pub enum ResolvedLink<'a> {
     File {
         link: MdLink<'a>,
+        /// The Uri of the file, the Link links to
         file_uri: &'a Url,
     },
     InternalHeading {
         link: MdLink<'a>,
+        /// The Uri of the file, the Link links to
         file_uri: &'a Url,
+        /// The Heading, the Link links to
         heading: &'a Heading,
     },
     ExternalHeading {
         link: MdLink<'a>,
+        /// The Uri of the file, the Link links to
         file_uri: &'a Url,
+        /// The Heading, the Link links to
         heading: &'a Heading,
     },
     Http,
     Unresolved,
 }
 
-// #[derive(Debug)]
-// pub struct ResolvedLink<'a> {
-//     pub heading: Option<&'a str>,
-//     pub uri: Url,
-// }
-//
-// impl<'a> ResolvedLink<'a> {
-//     fn new(heading: Option<&'a str>, uri: Url) -> Self {
-//         Self { heading, uri }
-//     }
-//
-//     pub fn from_state(
-//         linked_file: &'a str,
-//         heading_text: Option<&'a str>,
-//         state: &State,
-//     ) -> Option<ResolvedLink<'a>> {
-//         let file = if linked_file.ends_with(".md") {
-//             PathBuf::from(linked_file)
-//         } else {
-//             PathBuf::from(format!("{}.md", linked_file))
-//         };
-//         for url in state.md_files.keys() {
-//             if url.to_file_path().unwrap().file_name().unwrap() == file.file_name().unwrap() {
-//                 return Some(ResolvedLink::new(heading_text, url.clone()));
-//             }
-//         }
-//         None
-//     }
-// }
+impl ResolvedLink<'_> {
+    pub fn link_position(&self) -> Option<&AstPosition> {
+        match self {
+            ResolvedLink::File { link, .. }
+            | ResolvedLink::InternalHeading { link, .. }
+            | ResolvedLink::ExternalHeading { link, .. } => link.position(),
+            _ => None,
+        }
+    }
+
+    pub fn file_uri(&self) -> Option<&Url> {
+        match self {
+            ResolvedLink::File { file_uri, .. }
+            | ResolvedLink::InternalHeading { file_uri, .. }
+            | ResolvedLink::ExternalHeading { file_uri, .. } => Some(file_uri),
+            _ => None,
+        }
+    }
+
+    pub fn heading_text(&self) -> Option<&str> {
+        match self {
+            ResolvedLink::InternalHeading { heading, .. }
+            | ResolvedLink::ExternalHeading { heading, .. } => get_heading_text(heading),
+            _ => None,
+        }
+    }
+}
 
 pub fn resolve_link<'a>(link: &'a Link, state: &'a State) -> ResolvedLink<'a> {
     let md_link = MdLink::new(link);
@@ -88,14 +105,12 @@ pub fn resolve_link<'a>(link: &'a Link, state: &'a State) -> ResolvedLink<'a> {
     }
 
     match link.url.split_once('#') {
-        // internal link to heading `#...`
-        Some(("", heading_ref_text)) => {
-            log::info!("INTERNAL LINK: {:?}", &link);
+        Some(("", _)) => {
             for (url, md_file) in state.md_files.iter() {
-                if let Some(heading) = find_heading_for_link(&md_file.ast, &link) {
+                if let Some(heading) = find_heading_for_link(&md_file.ast, link) {
                     return ResolvedLink::InternalHeading {
                         link: md_link,
-                        file_uri: &url,
+                        file_uri: url,
                         heading,
                     };
                 }
@@ -104,7 +119,6 @@ pub fn resolve_link<'a>(link: &'a Link, state: &'a State) -> ResolvedLink<'a> {
         }
         // link with referece to heading `...#...`
         Some((file_ref_text, heading_ref_text)) => {
-            log::info!("LINK WITH REF TO HEADING: {:?}", &link);
             // allow both: with suffix and without
             let file = if file_ref_text.ends_with(".md") {
                 file_ref_text.into()
@@ -112,31 +126,26 @@ pub fn resolve_link<'a>(link: &'a Link, state: &'a State) -> ResolvedLink<'a> {
                 format!("{}.md", file_ref_text)
             };
 
-            log::info!("LINK WITH REF TO HEADING file: {:?}", &file);
             for (url, relative_path) in state.get_file_list() {
-                log::info!("rel path, file: {:?}, {:?}", &relative_path, file);
                 if relative_path == file {
-                    log::info!("YES");
-                    log::info!("URL  : {:?}", &url);
                     // as we get url from state it must be in there
                     let ast = state.ast_for_uri(url).unwrap();
                     if let Some(heading) = find_heading_for_link_identifier(ast, heading_ref_text) {
-                        log::info!("BEFORE RETURN: {:?}", &md_link);
                         return ResolvedLink::ExternalHeading {
                             link: md_link,
                             file_uri: url,
                             heading,
                         };
                     }
-                    return ResolvedLink::File { link: md_link, file_uri: url }
+                    return ResolvedLink::File {
+                        link: md_link,
+                        file_uri: url,
+                    };
                 }
             }
-            log::info!("Unresolved: {:?}", &md_link);
             ResolvedLink::Unresolved
         }
-        // link without referece to heading `...`
         None => {
-            log::info!("LINK WITHOUT REF TO HEADING: {:?}", &link);
             let file = if link.url.ends_with(".md") {
                 link.url.to_string()
             } else {
@@ -168,7 +177,7 @@ impl ExtractedWikiLink {
         let value_len = value.len();
         let link_text = Text {
             value,
-            position: Some(Position {
+            position: Some(AstPosition {
                 start: Point {
                     line: start_line + self.line_number,
                     column: self.start_position,
@@ -189,7 +198,7 @@ impl ExtractedWikiLink {
 
         let link = Link {
             children: vec![link_text_node],
-            position: Some(Position {
+            position: Some(AstPosition {
                 start: Point {
                     line: start_line + self.line_number,
                     column: self.start_position - 2,

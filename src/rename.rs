@@ -10,7 +10,8 @@ use crate::{
         find_definition_for_identifier, find_foot_definition_for_identifier,
         find_footnote_references_for_identifier, find_link_references_for_identifier,
     },
-    references::{get_heading_refs, FoundLink},
+    links::ResolvedLink,
+    references::get_heading_refs,
     state::State,
     traverse_ast,
 };
@@ -38,7 +39,8 @@ pub fn rename(
 
     match node {
         Node::Heading(heading) => {
-            let mut ref_changes = rename_heading_refs(new_name, req_uri, heading, state);
+            let mut ref_changes = rename_heading_refs(new_name, heading, state);
+            // also rename the heading itself
             if let Some(range) = heading_rename_range(heading) {
                 let heading_change = TextEdit {
                     range,
@@ -225,38 +227,30 @@ fn rename_range(start_line: usize, end_line: usize, start_char: usize, end_char:
 /// Renaming of references to headings, these are contained in links
 fn rename_heading_refs(
     new_name: &str,
-    req_uri: &Url,
     heading: &Heading,
     state: &State,
 ) -> HashMap<Url, Vec<TextEdit>> {
-    get_heading_refs(req_uri, heading, state).into_iter().fold(
+    get_heading_refs(heading, state).into_iter().fold(
         HashMap::new(),
-        |mut acc, found_ref| match found_ref {
-            FoundLink::InternalHeading {
-                link,
-                uri,
-                heading_text,
-            }
-            | FoundLink::ExternalHeading {
-                link,
-                uri,
-                heading_text,
-            } => {
-                if let Some(pos) = &link.position {
+        |mut acc, (link_uri, found_ref)| match found_ref {
+            ResolvedLink::InternalHeading { ref link, .. }
+            | ResolvedLink::ExternalHeading { ref link, .. } => {
+                if let (Some(pos), Some(heading_text)) = (link.position(), found_ref.heading_text())
+                {
                     let start_line = pos.start.line - 1;
                     let mut start_char = pos.end.column - 2 - heading_text.len();
                     let end_line = pos.end.line - 1;
                     let mut end_char = pos.end.column - 2;
-                    if let Some("wikilink") = link.title.as_deref() {
+                    let mut new_text = new_name.to_string();
+                    if link.is_wikilink() {
                         start_char -= 1;
                         end_char -= 1;
+                    } else {
+                        new_text = new_text.to_lowercase().replace(' ', "-");
                     }
                     let range = rename_range(start_line, end_line, start_char, end_char);
-                    let text_edit = TextEdit {
-                        range,
-                        new_text: new_name.to_lowercase().replace(' ', "-"),
-                    };
-                    acc.entry(uri.clone()).or_default().push(text_edit);
+                    let text_edit = TextEdit { range, new_text };
+                    acc.entry(link_uri.clone()).or_default().push(text_edit);
                 }
                 acc
             }

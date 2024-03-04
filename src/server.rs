@@ -4,19 +4,17 @@ use lsp_types::{
     CodeActionParams, CompletionParams, Diagnostic, DiagnosticSeverity,
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
     DocumentFormattingParams, DocumentRangeFormattingParams, DocumentSymbolParams,
-    GotoDefinitionParams, HoverParams, Location, PublishDiagnosticsParams, RenameParams,
-    TextDocumentPositionParams, Url, WorkspaceEdit, Position as LspPosition
+    GotoDefinitionParams, HoverParams, PublishDiagnosticsParams, ReferenceParams, RenameParams,
+    TextDocumentPositionParams, Url, WorkspaceEdit,
 };
-use markdown::mdast::Node;
 
-use crate::ast::find_definition_for_position;
 use crate::code_actions::code_actions;
 use crate::completion::completion;
 use crate::definition::definition;
 use crate::diagnostics::check_links;
 use crate::formatting::{formatting, range_formatting};
 use crate::hover::hover;
-use crate::references::{handle_definition, handle_footnote_definition, handle_heading};
+use crate::references::references;
 use crate::rename::{prepare_rename, rename};
 use crate::state::State;
 use crate::symbols::{document_symbols, workspace_symbols};
@@ -174,45 +172,14 @@ impl Server {
     }
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_references
     fn handle_references(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
-        let params: HoverParams = serde_json::from_value(req.params)?;
-        let position_params = params.text_document_position_params;
-        let req_uri = position_params.text_document.uri;
-        let LspPosition { line, character } = position_params.position;
-
-        let req_ast = state.ast_for_uri(&req_uri).unwrap();
-        let node = find_definition_for_position(req_ast, line, character);
-
-        let found_links = match node {
-            Some(n) => match n {
-                Node::Heading(h) => Some(handle_heading(h, &req_uri, state)),
-                Node::Definition(d) => handle_definition(req_ast, &req_uri, d),
-                Node::FootnoteDefinition(f) => handle_footnote_definition(req_ast, &req_uri, f),
-                _ => None,
-            },
-            None => None,
-        };
-
-        let result = found_links.map(|found_links| {
-            found_links
-                .into_iter()
-                .map(|found_link| Location {
-                    uri: found_link.file_url.clone(),
-                    range: found_link.range,
-                })
-                .collect::<Vec<Location>>()
-        });
-
-        let result = serde_json::to_value(result)?;
-
-        let resp = Response {
+        let params: ReferenceParams = serde_json::from_value(req.params)?;
+        let result = references(&params, state).and_then(|refs| serde_json::to_value(refs).ok());
+        let response = Response {
             id: req.id,
-            result: Some(result),
+            result,
             error: None,
         };
-
-        self.connection.sender.send(Message::Response(resp))?;
-
-        Ok(())
+        self.send(response)
     }
 
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_documentSymbol

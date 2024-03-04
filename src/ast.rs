@@ -180,6 +180,23 @@ pub fn find_headings(node: &Node) -> Vec<&Heading> {
     headings
 }
 
+pub fn find_links(node: &Node) -> Vec<&Link> {
+    let mut links = Vec::new();
+    match node {
+        Node::Link(link) => {
+            links.push(link);
+        }
+        _ => {
+            if let Some(children) = node.children(){
+                for child in children {
+                    links.extend(find_links(child))
+                }
+            }
+        }
+    }
+    links
+}
+
 pub fn find_defintions(node: &Node) -> Vec<&Definition> {
     let mut definitions = Vec::new();
     match node {

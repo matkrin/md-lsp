@@ -2,6 +2,10 @@
 
 ## TODO
 
+- complete: heading in same file without filename
+- rename: consistent with autocomplete
+- diagnostics
+
 * [x] hover:
     - [x] Headings[^heading] 
     - [x] Link[^link]

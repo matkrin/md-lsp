@@ -19,15 +19,15 @@ pub fn completion(params: CompletionParams, state: &State) -> Option<CompletionL
     // let trigger_kind = context.trigger_kind;
     let trigger_character = context.trigger_character;
     match trigger_character.as_deref() {
-        Some("(") if peek_behind == Some(']') => link_completion(&req_uri, state),
-        Some("[") if peek_behind == Some('[') => wikilink_completion(&req_uri, state),
+        Some("(") if peek_behind == Some(']') => link_completion(state),
+        Some("[") if peek_behind == Some('[') => wikilink_completion(state),
         Some("^") if peek_behind == Some('[') => footnote_ref_completion(&req_uri, state),
         Some("[") => link_ref_completion(&req_uri, state),
         _ => None,
     }
 }
 
-fn link_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
+fn link_completion( state: &State) -> Option<CompletionList> {
     let root_uri = PathBuf::from(&state.workspace_folder()?.name);
     let completion_items: Option<Vec<CompletionItem>> = state
         .md_files
@@ -59,7 +59,7 @@ fn link_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
     })
 }
 
-fn wikilink_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
+fn wikilink_completion(state: &State) -> Option<CompletionList> {
     let root_uri = PathBuf::from(&state.workspace_folder()?.name);
     let completion_items: Option<Vec<CompletionItem>> = state
         .md_files

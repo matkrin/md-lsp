@@ -1,15 +1,15 @@
 use lsp_types::{
     Hover, HoverContents, HoverParams, MarkupContent, MarkupKind, Position, Range, Url,
 };
-use markdown::mdast::{FootnoteReference, Link, LinkReference, Node};
+use markdown::mdast::{FootnoteReference, Heading, Link, LinkReference, Node};
 
 use crate::{
     ast::{
-        find_def_for_link_ref, find_footnote_def_for_footnote_ref, find_heading_for_url,
+        find_def_for_link_ref, find_footnote_def_for_footnote_ref, find_heading_for_link,
         find_link_for_position, find_next_heading,
     },
     definition::range_from_position,
-    links::resolve_link,
+    links::{resolve_link, ResolvedLink},
     state::State,
 };
 
@@ -37,34 +37,42 @@ pub fn hover(params: &HoverParams, state: &State) -> Option<Hover> {
     })
 }
 
-pub fn get_target_heading_uri<'a>(
-    req_uri: &Url,
-    link: &'a Link,
-    state: &'a State,
-) -> (Url, Option<&'a str>) {
-    match &state.workspace_folder() {
-        Some(_) => match resolve_link(link, state) {
-            Some(rl) => (rl.uri, rl.heading),
-            None => (req_uri.clone(), Some(&link.url)),
-        },
-        _ => (req_uri.clone(), Some(&link.url)),
-    }
-}
+// pub fn get_target_heading_uri<'a>(
+//     req_uri: &Url,
+//     link: &'a Link,
+//     state: &'a State,
+// ) -> (Url, Option<&'a str>) {
+//     match &state.workspace_folder() {
+//         Some(_) => match resolve_link(link, state) {
+//             // link to other file
+//             Some(rl) => (rl.uri, rl.heading),
+//             // link to internal heading
+//             None => (req_uri.clone(), Some(&link.url)),
+//         },
+//         _ => (req_uri.clone(), Some(&link.url)),
+//     }
+// }
 
 fn handle_link(req_uri: &Url, link: &Link, state: &State) -> Option<String> {
-    let (target_uri, heading_text) = get_target_heading_uri(req_uri, link, state);
-    match heading_text {
-        Some(ht) => handle_link_heading(&target_uri, ht, state),
-        None => handle_link_other_file(&target_uri, state),
+    match resolve_link(link, state) {
+        ResolvedLink::File { file_uri, .. } => handle_link_other_file(file_uri, state),
+        ResolvedLink::InternalHeading {
+            file_uri, heading, ..
+        }
+        | ResolvedLink::ExternalHeading {
+            file_uri, heading, ..
+        } => handle_link_heading(file_uri, heading, state),
+        _ => None,
     }
 }
 
-fn handle_link_heading(target_uri: &Url, heading_text: &str, state: &State) -> Option<String> {
+fn handle_link_heading(target_uri: &Url, heading: &Heading, state: &State) -> Option<String> {
     let target_ast = state.ast_for_uri(target_uri)?;
 
-    let linked_heading = find_heading_for_url(target_ast, heading_text)?;
-    let linked_heading_pos = linked_heading.position.as_ref()?;
-    let depth = linked_heading.depth;
+    log::info!("LINK TO target_uri: {:?}", &target_uri);
+    log::info!("LINK TO Heading: {:?}", &heading);
+    let linked_heading_pos = heading.position.as_ref()?;
+    let depth = heading.depth;
     match find_next_heading(target_ast, linked_heading_pos.end.line, depth) {
         Some(next_heading) => {
             let next_heading_pos = next_heading.position.as_ref()?;
@@ -80,11 +88,24 @@ fn handle_link_heading(target_uri: &Url, heading_text: &str, state: &State) -> O
             };
             state.buffer_range_for_uri(target_uri, &range)
         }
-        None => state.buffer_for_uri(target_uri).map(ToString::to_string),
+        None => {
+            let range = Range {
+                start: Position {
+                    line: (linked_heading_pos.start.line - 1) as u32,
+                    character: (linked_heading_pos.start.column - 1) as u32,
+                },
+                end: Position {
+                    line: 99999,
+                    character: 99999,
+                },
+            };
+            state.buffer_range_for_uri(target_uri, &range)
+        }
     }
 }
 
 fn handle_link_other_file(target_uri: &Url, state: &State) -> Option<String> {
+    log::info!("LINK TO OTHER FILE FUNC TARGET: {:?}", target_uri);
     state.buffer_for_uri(target_uri).map(ToString::to_string)
 }
 

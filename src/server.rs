@@ -4,17 +4,15 @@ use lsp_types::{
     CodeActionParams, CompletionParams, Diagnostic, DiagnosticSeverity,
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
     DocumentFormattingParams, DocumentRangeFormattingParams, DocumentSymbolParams,
-    GotoDefinitionParams, GotoDefinitionResponse, HoverParams, Location, Position as LspPosition,
-    PublishDiagnosticsParams, RenameParams, TextDocumentPositionParams, Url, WorkspaceEdit,
+    GotoDefinitionParams, HoverParams, Location, PublishDiagnosticsParams, RenameParams,
+    TextDocumentPositionParams, Url, WorkspaceEdit, Position as LspPosition
 };
 use markdown::mdast::Node;
 
-use crate::ast::{find_definition_for_position, find_link_for_position};
+use crate::ast::find_definition_for_position;
 use crate::code_actions::code_actions;
 use crate::completion::completion;
-use crate::definition::{
-    def_handle_link_footnote, def_handle_link_ref, def_handle_link_to_heading,
-};
+use crate::definition::definition;
 use crate::diagnostics::check_links;
 use crate::formatting::{formatting, range_formatting};
 use crate::hover::hover;
@@ -154,48 +152,13 @@ impl Server {
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition
     fn handle_defintion(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
         let params: GotoDefinitionParams = serde_json::from_value(req.params)?;
-        let position_params = params.text_document_position_params;
-        let req_uri = position_params.text_document.uri;
-        let LspPosition { line, character } = position_params.position;
-        let req_ast = state.ast_for_uri(&req_uri).unwrap();
-        let node = find_link_for_position(req_ast, line, character);
-
-        let (target_uri, range) = match node {
-            Some(n) => match n {
-                Node::Link(link) => def_handle_link_to_heading(&req_uri, link, state),
-                Node::LinkReference(link_ref) => (
-                    req_uri.clone(),
-                    def_handle_link_ref(req_ast, &link_ref.identifier),
-                ),
-                Node::FootnoteReference(foot_ref) => (
-                    req_uri.clone(),
-                    def_handle_link_footnote(req_ast, &foot_ref.identifier),
-                ),
-                _ => (req_uri.clone(), None),
-            },
-            None => (req_uri.clone(), None),
-        };
-
-        let result = match range {
-            Some(r) => {
-                let location = Location {
-                    uri: target_uri,
-                    range: r,
-                };
-                let result = Some(GotoDefinitionResponse::Scalar(location));
-                serde_json::to_value(result).ok()
-            }
-            None => None,
-        };
-
-        let resp = Response {
+        let result = definition(&params, state).and_then(|def| serde_json::to_value(def).ok());
+        let response = Response {
             id: req.id,
             result,
             error: None,
         };
-        self.connection.sender.send(Message::Response(resp))?;
-
-        Ok(())
+        self.send(response)
     }
 
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_hover

@@ -63,18 +63,34 @@ pub fn find_definition_for_position(node: &Node, line: u32, character: u32) -> O
     traverse_ast!(node, find_definition_for_position, line, character)
 }
 
-pub fn find_heading_for_url<'a>(node: &'a Node, link_url: &str) -> Option<&'a Heading> {
+pub fn find_heading_for_link<'a>(node: &'a Node, link: &Link) -> Option<&'a Heading> {
     if let Node::Heading(heading) = node {
         if let Some(Node::Text(Text { value, .. })) = heading.children.first() {
-            if value == &link_url.replace('#', "")
-                || value.to_lowercase().replace(' ', "-") == link_url.replace('#', "")
+            if value == &link.url.replace('#', "")
+                || value.to_lowercase().replace(' ', "-") == link.url.replace('#', "")
             {
+                log::info!("IN FIND H: {:?}", &heading);
                 return Some(heading);
             }
         }
     };
 
-    traverse_ast!(node, find_heading_for_url, link_url)
+    traverse_ast!(node, find_heading_for_link, link)
+}
+
+pub fn find_heading_for_link_identifier<'a>(node: &'a Node, link_identifier: &str) -> Option<&'a Heading> {
+    if let Node::Heading(heading) = node {
+        if let Some(Node::Text(Text { value, .. })) = heading.children.first() {
+            if value == &link_identifier.replace('#', "")
+                || value.to_lowercase().replace(' ', "-") == link_identifier.replace('#', "")
+            {
+                log::info!("IN FIND H: {:?}", &heading);
+                return Some(heading);
+            }
+        }
+    };
+
+    traverse_ast!(node, find_heading_for_link_identifier, link_identifier)
 }
 
 pub fn find_definition_for_identifier<'a>(

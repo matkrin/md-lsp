@@ -2,51 +2,157 @@ use std::path::PathBuf;
 
 use lsp_types::Url;
 use markdown::{
-    mdast::{Link, Node, Text},
+    mdast::{Heading, Link, Node, Text},
     unist::{Point, Position},
 };
 use regex::Regex;
 
-use crate::state::State;
+use crate::{
+    ast::{find_heading_for_link, find_heading_for_link_identifier},
+    state::{relative_path, State},
+};
 
 #[derive(Debug)]
-pub struct ResolvedLink<'a> {
-    pub heading: Option<&'a str>,
-    pub uri: Url,
+pub enum MdLink<'a> {
+    NormalLink(&'a Link),
+    WikiLink(&'a Link),
 }
 
-impl<'a> ResolvedLink<'a> {
-    fn new(heading: Option<&'a str>, uri: Url) -> Self {
-        Self { heading, uri }
-    }
-
-    pub fn from_state(
-        linked_file: &'a str,
-        heading_text: Option<&'a str>,
-        state: &State,
-    ) -> Option<ResolvedLink<'a>> {
-        let file = if linked_file.ends_with(".md") {
-            PathBuf::from(linked_file)
-        } else {
-            PathBuf::from(format!("{}.md", linked_file))
-        };
-        for url in state.md_files.keys() {
-            if url.to_file_path().unwrap().file_name().unwrap() == file.file_name().unwrap() {
-                return Some(ResolvedLink::new(heading_text, url.clone()));
-            }
+impl<'a, 'b> MdLink<'a>
+where
+    'b: 'a,
+{
+    fn new(link: &'b Link) -> Self {
+        match &link.title {
+            Some(title) if title == "wikilink" => MdLink::WikiLink(link),
+            _ => MdLink::NormalLink(link),
         }
-        None
     }
 }
 
-pub fn resolve_link<'a>(link: &'a Link, state: &State) -> Option<ResolvedLink<'a>> {
+#[derive(Debug)]
+pub enum ResolvedLink<'a> {
+    File {
+        link: MdLink<'a>,
+        file_uri: &'a Url,
+    },
+    InternalHeading {
+        link: MdLink<'a>,
+        file_uri: &'a Url,
+        heading: &'a Heading,
+    },
+    ExternalHeading {
+        link: MdLink<'a>,
+        file_uri: &'a Url,
+        heading: &'a Heading,
+    },
+    Http,
+    Unresolved,
+}
+
+// #[derive(Debug)]
+// pub struct ResolvedLink<'a> {
+//     pub heading: Option<&'a str>,
+//     pub uri: Url,
+// }
+//
+// impl<'a> ResolvedLink<'a> {
+//     fn new(heading: Option<&'a str>, uri: Url) -> Self {
+//         Self { heading, uri }
+//     }
+//
+//     pub fn from_state(
+//         linked_file: &'a str,
+//         heading_text: Option<&'a str>,
+//         state: &State,
+//     ) -> Option<ResolvedLink<'a>> {
+//         let file = if linked_file.ends_with(".md") {
+//             PathBuf::from(linked_file)
+//         } else {
+//             PathBuf::from(format!("{}.md", linked_file))
+//         };
+//         for url in state.md_files.keys() {
+//             if url.to_file_path().unwrap().file_name().unwrap() == file.file_name().unwrap() {
+//                 return Some(ResolvedLink::new(heading_text, url.clone()));
+//             }
+//         }
+//         None
+//     }
+// }
+
+pub fn resolve_link<'a>(link: &'a Link, state: &'a State) -> ResolvedLink<'a> {
+    let md_link = MdLink::new(link);
+
+    if link.url.starts_with("http") {
+        return ResolvedLink::Http;
+    }
+
     match link.url.split_once('#') {
         // internal link to heading `#...`
-        Some(("", _)) => None,
+        Some(("", heading_ref_text)) => {
+            log::info!("INTERNAL LINK: {:?}", &link);
+            for (url, md_file) in state.md_files.iter() {
+                if let Some(heading) = find_heading_for_link(&md_file.ast, &link) {
+                    return ResolvedLink::InternalHeading {
+                        link: md_link,
+                        file_uri: &url,
+                        heading,
+                    };
+                }
+            }
+            ResolvedLink::Unresolved
+        }
         // link with referece to heading `...#...`
-        Some((file, heading_text)) => ResolvedLink::from_state(file, Some(heading_text), state),
+        Some((file_ref_text, heading_ref_text)) => {
+            log::info!("LINK WITH REF TO HEADING: {:?}", &link);
+            // allow both: with suffix and without
+            let file = if file_ref_text.ends_with(".md") {
+                file_ref_text.into()
+            } else {
+                format!("{}.md", file_ref_text)
+            };
+
+            log::info!("LINK WITH REF TO HEADING file: {:?}", &file);
+            for (url, relative_path) in state.get_file_list() {
+                log::info!("rel path, file: {:?}, {:?}", &relative_path, file);
+                if relative_path == file {
+                    log::info!("YES");
+                    log::info!("URL  : {:?}", &url);
+                    // as we get url from state it must be in there
+                    let ast = state.ast_for_uri(url).unwrap();
+                    if let Some(heading) = find_heading_for_link_identifier(ast, heading_ref_text) {
+                        log::info!("BEFORE RETURN: {:?}", &md_link);
+                        return ResolvedLink::ExternalHeading {
+                            link: md_link,
+                            file_uri: url,
+                            heading,
+                        };
+                    }
+                    return ResolvedLink::File { link: md_link, file_uri: url }
+                }
+            }
+            log::info!("Unresolved: {:?}", &md_link);
+            ResolvedLink::Unresolved
+        }
         // link without referece to heading `...`
-        None => ResolvedLink::from_state(&link.url, None, state),
+        None => {
+            log::info!("LINK WITHOUT REF TO HEADING: {:?}", &link);
+            let file = if link.url.ends_with(".md") {
+                link.url.to_string()
+            } else {
+                format!("{}.md", link.url)
+            };
+            log::info!("FILE: {:?}", &file);
+            for (url, relative_path) in state.get_file_list() {
+                if relative_path == file {
+                    return ResolvedLink::File {
+                        link: md_link,
+                        file_uri: url,
+                    };
+                }
+            }
+            ResolvedLink::Unresolved
+        }
     }
 }
 

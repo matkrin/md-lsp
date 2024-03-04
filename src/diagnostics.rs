@@ -6,7 +6,7 @@ use markdown::mdast::{Link, Node};
 use regex::Regex;
 
 use crate::{
-    ast::find_heading_for_url,
+    ast::find_heading_for_link,
     definition::range_from_position,
     links::{resolve_link, ResolvedLink},
     state::State,
@@ -65,27 +65,55 @@ fn handle_broken_link(state: &State, link: &Link) -> Vec<BrokenLink> {
     let resolved_link = resolve_link(link, state);
     let mut broken_links = Vec::new();
     match resolved_link {
-        None => {
+        ResolvedLink::File { file_uri, .. } => { 
+            if let  Some(pos) = &link.position {
+                // let found = state
+                //     .ast_for_uri(&file_uri)
+                //     .and_then(|ast| find_heading_for_link(ast, link));
+                let file_path = file_uri.to_file_path().unwrap();
+                let file_name = file_path.file_name().and_then(|f| f.to_str());
+                if link.url.contains('#') {
+                    // if let (Some(f), None) = (file_name, found) {
+                    if let Some(f) = file_name {
+                        let range = range_from_position(pos);
+                        let message = format!("Link to non-existent heading `{}` in file `{}`", link.url, f);
+                        broken_links.push(BrokenLink { range, message })
+                    }
+                }
+            };
+        },
+        ResolvedLink::InternalHeading { link, file_uri, heading } => {},
+        ResolvedLink::ExternalHeading {  file_uri, heading, .. } => {
+        },
+        ResolvedLink::Http => todo!(),
+        ResolvedLink::Unresolved => {
             if let Some(pos) = &link.position {
                 let range = range_from_position(pos);
                 let message = format!("Link to non-existent file `{}`", link.url);
                 broken_links.push(BrokenLink { range, message })
             };
-        }
-        Some(ResolvedLink { uri, heading }) => {
-            if let (Some(h), Some(pos)) = (heading, &link.position) {
-                let found = state
-                    .ast_for_uri(&uri)
-                    .and_then(|ast| find_heading_for_url(ast, h));
-                let file_path = uri.to_file_path().unwrap();
-                let file_name = file_path.file_name().and_then(|f| f.to_str());
-                if let (Some(f), None) = (file_name, found) {
-                    let range = range_from_position(pos);
-                    let message = format!("Link to non-existent heading `{}` in file `{}`", h, f);
-                    broken_links.push(BrokenLink { range, message })
-                }
-            };
-        }
+        },
+        // None => {
+        //     if let Some(pos) = &link.position {
+        //         let range = range_from_position(pos);
+        //         let message = format!("Link to non-existent file `{}`", link.url);
+        //         broken_links.push(BrokenLink { range, message })
+        //     };
+        // }
+        // Some(ResolvedLink { uri, heading }) => {
+        //     if let (Some(h), Some(pos)) = (heading, &link.position) {
+        //         let found = state
+        //             .ast_for_uri(&uri)
+        //             .and_then(|ast| find_heading_for_link(ast, h));
+        //         let file_path = uri.to_file_path().unwrap();
+        //         let file_name = file_path.file_name().and_then(|f| f.to_str());
+        //         if let (Some(f), None) = (file_name, found) {
+        //             let range = range_from_position(pos);
+        //             let message = format!("Link to non-existent heading `{}` in file `{}`", h, f);
+        //             broken_links.push(BrokenLink { range, message })
+        //         }
+            // };
+        // }
         // Some(_) => {}
     };
     broken_links
@@ -94,7 +122,7 @@ fn handle_broken_link(state: &State, link: &Link) -> Vec<BrokenLink> {
 fn handle_broken_heading_link(link: &Link, req_uri: &Url, state: &State) -> Option<BrokenLink> {
     let found = state
         .ast_for_uri(req_uri)
-        .and_then(|ast| find_heading_for_url(ast, &link.url));
+        .and_then(|ast| find_heading_for_link(ast, &link));
     if let (Some(pos), None) = (&link.position, found) {
         Some(BrokenLink {
             range: range_from_position(pos),

@@ -28,7 +28,6 @@ pub fn completion(params: CompletionParams, state: &State) -> Option<CompletionL
 }
 
 fn link_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
-    let file_list = state.get_file_list(req_uri);
     let root_uri = PathBuf::from(&state.workspace_folder()?.name);
     let completion_items: Option<Vec<CompletionItem>> = state
         .md_files
@@ -61,7 +60,6 @@ fn link_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
 }
 
 fn wikilink_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
-    let file_list = state.get_file_list(req_uri);
     let root_uri = PathBuf::from(&state.workspace_folder()?.name);
     let completion_items: Option<Vec<CompletionItem>> = state
         .md_files

@@ -89,7 +89,6 @@ impl State {
     }
 
     pub fn buffer_range_for_uri(&self, uri: &Url, range: &Range) -> Option<String> {
-        log::info!("CALLED");
         let doc = self.buffer_for_uri(uri)?;
         let start_line = range.start.line as usize;
         let end_line = range.end.line as usize;
@@ -120,23 +119,22 @@ impl State {
         line.chars().nth((pos.character.checked_sub(2))? as usize)
     }
 
-    pub fn get_file_list(&self, req_uri: &Url) -> Vec<String> {
-        log::info!("WORKSPACE FOLDER {:?}", self.workspace_folder);
+    pub fn get_file_list(&self) -> Vec<(&Url, String)> {
         self.md_files
             .keys()
-            .filter(|url| url != &req_uri)
             .filter_map(|url| {
                 self.workspace_folder.as_ref().and_then(|wsf| {
                     let root = PathBuf::from(&wsf.name);
                     let file_path = url.to_file_path().ok()?;
-                    relative_path(&root, &file_path)
+                    let rel_path = relative_path(&root, &file_path)?;
+                    Some((url, rel_path))
                 })
             })
             .collect()
     }
 }
 
-fn relative_path(from: &Path, to: &Path) -> Option<String> {
+pub fn relative_path(from: &Path, to: &Path) -> Option<String> {
     if let Ok(rel) = to.strip_prefix(from) {
         Some(rel.to_string_lossy().into_owned())
     } else {

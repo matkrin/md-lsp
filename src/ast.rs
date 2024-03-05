@@ -20,10 +20,11 @@ macro_rules! traverse_ast {
     };
 }
 
-pub fn find_link_for_position(node: &Node, line: u32, character: u32) -> Option<&Node> {
+pub fn find_linkable_for_position(node: &Node, line: u32, character: u32) -> Option<&Node> {
     // log::info!("NODE: {:?}", node);
     match node {
-        Node::Link(Link { position, .. })
+        Node::Heading(Heading { position, .. })
+        | Node::Link(Link { position, .. })
         | Node::LinkReference(LinkReference { position, .. })
         | Node::FootnoteReference(FootnoteReference { position, .. }) => {
             if let Some(pos) = position {
@@ -39,7 +40,7 @@ pub fn find_link_for_position(node: &Node, line: u32, character: u32) -> Option<
         _ => {}
     };
 
-    traverse_ast!(node, find_link_for_position, line, character)
+    traverse_ast!(node, find_linkable_for_position, line, character)
 }
 
 pub fn find_definition_for_position(node: &Node, line: u32, character: u32) -> Option<&Node> {
@@ -78,7 +79,10 @@ pub fn find_heading_for_link<'a>(node: &'a Node, link: &Link) -> Option<&'a Head
     traverse_ast!(node, find_heading_for_link, link)
 }
 
-pub fn find_heading_for_link_identifier<'a>(node: &'a Node, link_identifier: &str) -> Option<&'a Heading> {
+pub fn find_heading_for_link_identifier<'a>(
+    node: &'a Node,
+    link_identifier: &str,
+) -> Option<&'a Heading> {
     if let Node::Heading(heading) = node {
         if let Some(Node::Text(Text { value, .. })) = heading.children.first() {
             if value == &link_identifier.replace('#', "")
@@ -187,7 +191,7 @@ pub fn find_links(node: &Node) -> Vec<&Link> {
             links.push(link);
         }
         _ => {
-            if let Some(children) = node.children(){
+            if let Some(children) = node.children() {
                 for child in children {
                     links.extend(find_links(child))
                 }
@@ -303,7 +307,10 @@ pub fn find_next_heading(node: &Node, end_line: usize, depth: u8) -> Option<&Hea
     traverse_ast!(node, find_next_heading, end_line, depth)
 }
 
-pub fn find_def_for_link_ref<'a>(node: &'a Node, link_ref: &LinkReference) -> Option<&'a Definition> {
+pub fn find_def_for_link_ref<'a>(
+    node: &'a Node,
+    link_ref: &LinkReference,
+) -> Option<&'a Definition> {
     if let Node::Definition(def) = node {
         if link_ref.identifier == def.identifier {
             return Some(def);

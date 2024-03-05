@@ -5,12 +5,13 @@ use markdown::mdast::{FootnoteReference, Heading, Link, LinkReference, Node};
 
 use crate::{
     ast::{
-        find_def_for_link_ref, find_footnote_def_for_footnote_ref,
-        find_link_for_position, find_next_heading,
+        find_def_for_link_ref, find_footnote_def_for_footnote_ref, find_headings,
+        find_linkable_for_position, find_next_heading, get_heading_text,
     },
     definition::range_from_position,
     links::{resolve_link, ResolvedLink},
     state::State,
+    symbols::add_pounds,
 };
 
 pub fn hover(params: &HoverParams, state: &State) -> Option<Hover> {
@@ -19,11 +20,11 @@ pub fn hover(params: &HoverParams, state: &State) -> Option<Hover> {
     let Position { line, character } = position_params.position;
 
     let req_ast = state.ast_for_uri(req_uri)?;
-    log::info!("AST: {:#?}", &req_ast);
-    let node = find_link_for_position(req_ast, line, character)?;
+    let node = find_linkable_for_position(req_ast, line, character)?;
     log::info!("HOVERRRRRR NODE : {:#?}", node);
 
     let message = match node {
+        Node::Heading(heading) => handle_heading(req_uri, heading, state),
         Node::Link(link) => handle_link(link, state),
         Node::LinkReference(link_ref) => handle_link_reference(req_uri, link_ref, state),
         Node::FootnoteReference(foot_ref) => handle_footnote_reference(req_uri, foot_ref, state),
@@ -38,21 +39,22 @@ pub fn hover(params: &HoverParams, state: &State) -> Option<Hover> {
     })
 }
 
-// pub fn get_target_heading_uri<'a>(
-//     req_uri: &Url,
-//     link: &'a Link,
-//     state: &'a State,
-// ) -> (Url, Option<&'a str>) {
-//     match &state.workspace_folder() {
-//         Some(_) => match resolve_link(link, state) {
-//             // link to other file
-//             Some(rl) => (rl.uri, rl.heading),
-//             // link to internal heading
-//             None => (req_uri.clone(), Some(&link.url)),
-//         },
-//         _ => (req_uri.clone(), Some(&link.url)),
-//     }
-// }
+fn handle_heading(req_uri: &Url, req_heading: &Heading, state: &State) -> Option<String> {
+    state.ast_for_uri(req_uri).map(|ast| {
+        let headings = find_headings(ast);
+        headings.into_iter().fold(String::new(), |acc, heading| {
+            if let Some(heading_text) = get_heading_text(heading) {
+                let mut outline = format!("{acc}\n{}", add_pounds(heading_text, heading.depth));
+                if heading == req_heading {
+                    outline.push_str(" `<--`")
+                }
+                outline
+            } else {
+                acc
+            }
+        })
+    })
+}
 
 fn handle_link(link: &Link, state: &State) -> Option<String> {
     match resolve_link(link, state) {

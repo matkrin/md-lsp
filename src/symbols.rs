@@ -65,7 +65,7 @@ pub fn workspace_symbols(state: &State) -> Option<Vec<WorkspaceSymbol>> {
         .collect()
 }
 
-fn add_pounds(heading_text: &str, depth: u8) -> String {
+pub fn add_pounds(heading_text: &str, depth: u8) -> String {
     let pounds = (0..depth).map(|_| '#').collect::<String>();
     format!("{pounds} {heading_text}")
 }

@@ -4,14 +4,14 @@
 
 - improve diagnostics
 
-* [>] hover:
-    - [ ] Headings[^heading] (should show outline with current heading highlighted)
+* [x] parse Wikilinks, no support for `[[...|...]]` yet
+
+* [x] hover:
+    - [x] Headings[^heading] (should show outline with current heading highlighted)
     - [x] Link[^link]
     - [x] LinkReference[^link-ref]
     - [x] FootnoteReference[^footnote-ref]
-    - [x] Wikilinks (as Link)[^wikilink], no support for `[[...|...]]` yet
-
-* [x] parse Wikilinks
+    - [x] Wikilinks[^wikilink]
 
 * [x] go to definition:
     - [x] Link (for Headings)

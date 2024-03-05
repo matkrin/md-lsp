@@ -2,9 +2,7 @@
 
 ## TODO
 
-- complete: heading in same file without filename
-- rename: consistent with autocomplete
-- diagnostics
+- improve diagnostics
 
 * [>] hover:
     - [ ] Headings[^heading] (should show outline with current heading highlighted)

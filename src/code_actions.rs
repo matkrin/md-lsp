@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use lsp_types::{CodeAction, Position, Range, TextEdit, Url, WorkspaceEdit};
+use lsp_types::{CodeAction, CodeActionParams, Position, Range, TextEdit, Url, WorkspaceEdit};
 use markdown::mdast::{Heading, Html};
 
 use crate::{
@@ -13,7 +13,9 @@ const TOC_START: &str = "<!--toc:start-->";
 const TOC_END: &str = "<!--toc:end-->";
 
 // first edit should be enough new lines that content pushed down, second edit actual content
-pub fn code_actions(req_uri: &Url, state: &State) -> Option<Vec<CodeAction>> {
+pub fn code_actions(params: &CodeActionParams, state: &State) -> Option<Vec<CodeAction>> {
+    let req_uri = &params.text_document.uri;
+
     let mut code_actions = Vec::new();
     let ast = state.ast_for_uri(req_uri)?;
     let headings = find_headings(ast);

@@ -185,113 +185,80 @@ impl Server {
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_documentSymbol
     fn handle_document_symbol(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
         let params: DocumentSymbolParams = serde_json::from_value(req.params)?;
-        let req_uri = params.text_document.uri;
-        let req_ast = state.ast_for_uri(&req_uri).unwrap();
-
-        let result = document_symbols(req_ast).and_then(|res| serde_json::to_value(res).ok());
-
-        let resp = Response {
+        let result =
+            document_symbols(&params, state).and_then(|res| serde_json::to_value(res).ok());
+        let response = Response {
             id: req.id,
             result,
             error: None,
         };
-
-        self.connection.sender.send(Message::Response(resp))?;
-
-        Ok(())
+        self.send(response)
     }
 
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_symbol
     fn handle_workspace_symbol(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
         let result = workspace_symbols(state).and_then(|res| serde_json::to_value(res).ok());
-
-        let resp = Response {
+        let response = Response {
             id: req.id,
             result,
             error: None,
         };
-
-        self.connection.sender.send(Message::Response(resp))?;
-
-        Ok(())
+        self.send(response)
     }
 
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_formatting
     fn handle_formatting(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
         let params: DocumentFormattingParams = serde_json::from_value(req.params)?;
-        let req_uri = params.text_document.uri;
-
-        let result = formatting(&req_uri, state).and_then(|it| serde_json::to_value(it).ok());
+        let result = formatting(&params, state).and_then(|it| serde_json::to_value(it).ok());
         let resp = Response {
             id: req.id,
             result,
             error: None,
         };
-
-        self.connection.sender.send(Message::Response(resp))?;
-
-        Ok(())
+        self.send(resp)
     }
 
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_rangeFormatting
     fn handle_range_formatting(&self, req: lsp_server::Request, state: &mut State) -> Result<()> {
         let params: DocumentRangeFormattingParams = serde_json::from_value(req.params)?;
-        let req_uri = params.text_document.uri;
-        let req_range = params.range;
-        let result = range_formatting(&req_uri, &req_range, state)
-            .and_then(|it| serde_json::to_value(it).ok());
-        let resp = Response {
+        let result = range_formatting(&params, state).and_then(|it| serde_json::to_value(it).ok());
+        let response = Response {
             id: req.id,
             result,
             error: None,
         };
-
-        self.connection.sender.send(Message::Response(resp))?;
-
-        Ok(())
+        self.send(response)
     }
 
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_prepareRename
     fn handle_prepare_rename(&self, req: lsp_server::Request, state: &State) -> Result<()> {
         let params: TextDocumentPositionParams = serde_json::from_value(req.params)?;
-        let req_uri = params.text_document.uri;
-        let req_position = params.position;
-        let result = prepare_rename(&req_uri, &req_position, state)
-            .and_then(|it| serde_json::to_value(it).ok());
-
-        let resp = Response {
+        let result = prepare_rename(&params, state).and_then(|it| serde_json::to_value(it).ok());
+        let response = Response {
             id: req.id,
             result,
             error: None,
         };
-
-        self.connection.sender.send(Message::Response(resp))?;
-
-        Ok(())
+        self.send(response)
     }
 
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_rename
     fn handle_rename(&self, req: lsp_server::Request, state: &State) -> Result<()> {
         let params: RenameParams = serde_json::from_value(req.params)?;
-        let req_uri = params.text_document_position.text_document.uri;
-        let new_name = params.new_name;
-        let req_pos = params.text_document_position.position;
 
-        let result = rename(&new_name, &req_uri, &req_pos, state)
+        let result = rename(&params, state)
             .map(|changes| WorkspaceEdit {
                 changes: Some(changes),
                 document_changes: None,
                 change_annotations: None,
             })
             .and_then(|it| serde_json::to_value(it).ok());
-        let resp = Response {
+        let response = Response {
             id: req.id,
             result,
             error: None,
         };
-
-        self.connection.sender.send(Message::Response(resp))?;
-        Ok(())
+        self.send(response)
     }
 
     fn handle_did_change_watched_files(&self, not: lsp_server::Notification) -> Result<()> {
@@ -300,44 +267,25 @@ impl Server {
     }
 
     fn handle_code_action(&self, req: lsp_server::Request, state: &State) -> Result<()> {
-        log::info!("CODE ACTION : {:?}", req);
         let params: CodeActionParams = serde_json::from_value(req.params)?;
-        log::info!("PARAMS : {:?}", params);
-        let req_uri = params.text_document.uri;
-        let result = code_actions(&req_uri, state).and_then(|it| serde_json::to_value(it).ok());
-        let resp = Response {
+        let result = code_actions(&params, state).and_then(|it| serde_json::to_value(it).ok());
+        let response = Response {
             id: req.id,
             result,
             error: None,
         };
-        self.connection.sender.send(Message::Response(resp))?;
-
-        Ok(())
-        // CODE ACTION : Request {
-        // id: RequestId(I32(2)),
-        // method: "textDocument/codeAction",
-        // params: Object {
-        //      "context": Object {"diagnostics": Array [], "triggerKind": Number(1)},
-        //      "range": Object {"end": Object {"character":  Number(0), "line": Number(0)}, "start": Object {"character": Number(0), "line": Number(0)}},
-        //      "textDocument": Object {"uri": String("file:///home/matthias/github/md-lsp/test.md")}}
-        // }
-        //  PARAMS : CodeActionParams {
-        //  text_document: TextDocumentIdentifier { uri: Url { scheme: "file", cannot_be_a_base: false, username: "", password: None, host: None, port: None, path: "/home/matthias/github/md-lsp/test.md", query: None, fragment: None } },
-        //  range: Range { start: Position { line: 0, character: 0 }, end: Position { line: 0, character: 0 } },
-        //  context: CodeActionContext { diagnostics: [], only: None, trigger_kind: Some(Invoked) }, work_done_progress_params: WorkDoneProgressParams { work_done_token: None }, partial_result_params: PartialResultParams { partial_result_token: None } }
+        self.send(response)
     }
 
     fn handle_completion(&self, req: lsp_server::Request, state: &State) -> Result<()> {
         let params: CompletionParams = serde_json::from_value(req.params)?;
-        log::info!("COMPLETION PARAMS : {:?}", params);
         let result = completion(params, state)
             .and_then(|completion_list| serde_json::to_value(completion_list).ok());
-        let resp = Response {
+        let response = Response {
             id: req.id,
             result,
             error: None,
         };
-        self.connection.sender.send(Message::Response(resp))?;
-        Ok(())
+        self.send(response)
     }
 }

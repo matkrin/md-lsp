@@ -1,9 +1,11 @@
 use anyhow::Result;
-use lsp_types::{Position, Range, TextEdit, Url};
+use lsp_types::{DocumentFormattingParams, DocumentRangeFormattingParams, Position, Range, TextEdit};
 
 use crate::state::State;
 
-pub fn formatting(req_uri: &Url, state: &State) -> Option<Vec<TextEdit>> {
+pub fn formatting(params: &DocumentFormattingParams, state: &State) -> Option<Vec<TextEdit>> {
+    let req_uri = &params.text_document.uri;
+
     state.buffer_for_uri(req_uri).map(|doc| {
         let lines = doc.lines().count();
         let last_char = doc.lines().last().map(|it| it.chars().count());
@@ -21,7 +23,10 @@ pub fn formatting(req_uri: &Url, state: &State) -> Option<Vec<TextEdit>> {
     })?
 }
 
-pub fn range_formatting(req_uri: &Url, req_range: &Range, state: &State) -> Option<Vec<TextEdit>> {
+pub fn range_formatting(params: &DocumentRangeFormattingParams, state: &State) -> Option<Vec<TextEdit>> {
+    let req_uri = &params.text_document.uri;
+    let req_range = &params.range;
+
     state.buffer_range_for_uri(req_uri, req_range).map(|text| {
         log::info!("TEXT TO FORMAT: {:?}", text);
         let formatted = format_md(&text);

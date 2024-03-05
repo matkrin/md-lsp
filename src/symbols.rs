@@ -1,5 +1,4 @@
-use lsp_types::{DocumentSymbol, Location, SymbolKind, WorkspaceSymbol};
-use markdown::mdast::Node;
+use lsp_types::{DocumentSymbol, DocumentSymbolParams, Location, SymbolKind, WorkspaceSymbol};
 
 use crate::{
     ast::{find_headings, get_heading_text},
@@ -7,7 +6,9 @@ use crate::{
     state::State,
 };
 
-pub fn document_symbols(req_ast: &Node) -> Option<Vec<DocumentSymbol>> {
+pub fn document_symbols(params: &DocumentSymbolParams, state: &State) -> Option<Vec<DocumentSymbol>> {
+    let req_uri = &params.text_document.uri;
+    let req_ast = state.ast_for_uri(req_uri)?;
     let headings = find_headings(req_ast);
 
     headings

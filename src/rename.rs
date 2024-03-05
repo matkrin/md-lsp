@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use lsp_types::{Position, PrepareRenameResponse, Range, TextEdit, Url};
+use lsp_types::{
+    Position, PrepareRenameResponse, Range, RenameParams, TextDocumentPositionParams, TextEdit, Url
+};
 use markdown::mdast::{
     Definition, FootnoteDefinition, FootnoteReference, Heading, LinkReference, Node, Text,
 };
@@ -17,22 +19,23 @@ use crate::{
 };
 
 pub fn prepare_rename(
-    req_uri: &Url,
-    req_pos: &Position,
+    params: &TextDocumentPositionParams,
     state: &State,
 ) -> Option<PrepareRenameResponse> {
+    let req_uri = &params.text_document.uri;
+    let req_position = &params.position;
+
     state
         .ast_for_uri(req_uri)
-        .and_then(|ast| find_renameable_for_position(ast, req_pos))
+        .and_then(|ast| find_renameable_for_position(ast, req_position))
         .and_then(|node| prepare_rename_range(node).map(PrepareRenameResponse::Range))
 }
 
-pub fn rename(
-    new_name: &str,
-    req_uri: &Url,
-    req_pos: &Position,
-    state: &State,
-) -> Option<HashMap<Url, Vec<TextEdit>>> {
+pub fn rename( params: &RenameParams, state: &State,) -> Option<HashMap<Url, Vec<TextEdit>>> {
+    let req_uri = &params.text_document_position.text_document.uri;
+    let new_name = &params.new_name;
+    let req_pos = &params.text_document_position.position;
+
     let node = state
         .ast_for_uri(req_uri)
         .and_then(|ast| find_renameable_for_position(ast, req_pos))?;
@@ -102,7 +105,7 @@ pub fn rename(
                 },
             )
         }
-        _ => unreachable!(),
+        _ => None,
     }
 }
 

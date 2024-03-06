@@ -8,7 +8,8 @@ use markdown::{
 
 use crate::{
     ast::{
-        find_definition_for_identifier, find_foot_definition_for_identifier, find_linkable_for_position,
+        find_definition_for_identifier, find_foot_definition_for_identifier,
+        find_linkable_for_position,
     },
     links::{resolve_link, ResolvedLink},
     state::State,
@@ -22,7 +23,7 @@ pub fn definition(params: &GotoDefinitionParams, state: &State) -> Option<GotoDe
     let node = find_linkable_for_position(req_ast, line, character);
 
     let location = match node? {
-        Node::Link(link) => def_handle_link_to_heading(link, state),
+        Node::Link(link) => handle_link_to_heading(link, state),
         Node::LinkReference(link_ref) => handle_link_ref(req_uri, link_ref, state),
         Node::FootnoteReference(foot_ref) => handle_link_footnote(req_uri, foot_ref, state),
         _ => None,
@@ -30,7 +31,7 @@ pub fn definition(params: &GotoDefinitionParams, state: &State) -> Option<GotoDe
     location.map(GotoDefinitionResponse::Scalar)
 }
 
-pub fn def_handle_link_to_heading(link: &Link, state: &State) -> Option<Location> {
+fn handle_link_to_heading(link: &Link, state: &State) -> Option<Location> {
     match resolve_link(link, state) {
         ResolvedLink::File { file_uri, .. } => Some(Location {
             uri: file_uri.clone(),
@@ -47,24 +48,9 @@ pub fn def_handle_link_to_heading(link: &Link, state: &State) -> Option<Location
         }),
         _ => None,
     }
-
-    // let (target_uri, heading_text) = get_target_heading_uri(req_uri, link, state);
-    // match heading_text {
-    //     Some(ht) => (target_uri.clone(), handle_link_heading(&target_uri, ht, state)),
-    //     None => (target_uri, Some(range_zero())),
-    // }
-    // find_heading_for_url(req_ast, link_url).and_then(|heading| {
-    //     heading.position.as_ref().map(range_from_position)
-    // })
 }
 
-// fn handle_link_heading(target_uri: &Url, heading_text: &str, state: &State) -> Option<Range> {
-//     let target_ast = state.ast_for_uri(target_uri)?;
-//     find_heading_for_link(target_ast, heading_text)
-//         .and_then(|heading| heading.position.as_ref().map(range_from_position))
-// }
-
-pub fn handle_link_ref(req_uri: &Url, link_ref: &LinkReference, state: &State) -> Option<Location> {
+fn handle_link_ref(req_uri: &Url, link_ref: &LinkReference, state: &State) -> Option<Location> {
     let req_ast = state.ast_for_uri(req_uri).unwrap();
     find_definition_for_identifier(req_ast, &link_ref.identifier).and_then(|def| {
         def.position.as_ref().map(|pos| Location {
@@ -74,7 +60,7 @@ pub fn handle_link_ref(req_uri: &Url, link_ref: &LinkReference, state: &State) -
     })
 }
 
-pub fn handle_link_footnote(
+fn handle_link_footnote(
     req_uri: &Url,
     foot_ref: &FootnoteReference,
     state: &State,
@@ -88,7 +74,7 @@ pub fn handle_link_footnote(
     })
 }
 
-/// Takes `Position` from `markdown::unist`, `Position` in the returned `Range` from `lsp_types`
+/// Takes markdown::unist::Position`, returned `Position in `Range` from `lsp_types::Position`
 pub fn range_from_position(position: &unist::Position) -> Range {
     Range {
         start: LspPosition {

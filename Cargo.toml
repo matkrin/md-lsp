@@ -1,7 +1,16 @@
 [package]
 name = "md-lsp"
 version = "0.1.0"
+authors = ["matkrin <matkrin@protonmail.com>"]
 edition = "2021"
+description = "Markdown language server"
+documentation = "https://github.com/matkrin/md-lsp"
+homepage = "https://github.com/matkrin/md-lsp"
+repository = "https://github.com/matkrin/md-lsp"
+readme = "README.md"
+license = "MIT"
+keywords = ["lsp", "language-server", "markdown"]
+categories = ["development-tools", "text-editors"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

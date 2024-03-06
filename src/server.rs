@@ -261,11 +261,12 @@ impl Server {
         self.send(response)
     }
 
+    /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_didChangeWatchedFiles
     fn handle_did_change_watched_files(&self, not: lsp_server::Notification) -> Result<()> {
         log::info!("HANDLE DID CHANGE WATCHED FILE: {:?}", not);
         Ok(())
     }
-
+    /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_codeAction
     fn handle_code_action(&self, req: lsp_server::Request, state: &State) -> Result<()> {
         let params: CodeActionParams = serde_json::from_value(req.params)?;
         let result = code_actions(&params, state).and_then(|it| serde_json::to_value(it).ok());
@@ -277,6 +278,7 @@ impl Server {
         self.send(response)
     }
 
+    /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion
     fn handle_completion(&self, req: lsp_server::Request, state: &State) -> Result<()> {
         let params: CompletionParams = serde_json::from_value(req.params)?;
         let result = completion(params, state)

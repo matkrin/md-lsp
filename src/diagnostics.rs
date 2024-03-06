@@ -40,17 +40,19 @@ pub fn check_links(ast: &Node, req_uri: &Url, state: &State) -> Vec<BrokenLink> 
                     }
                 }
                 Node::Link(link) => v.extend(handle_broken_link(state, link)),
-                // Link that gets not parsed because not valid
-                Node::Text(t) if t.value.contains("](") => {
-                    v.extend(handle_invalid_link(req_uri, state))
-                }
-                // LinkRef
-                Node::Text(t) if t.value.contains("][") => {
-                    v.extend(handle_broken_ref(req_uri, state))
-                }
-                // FootnoteRef
-                Node::Text(t) if t.value.contains("[^") => {
-                    v.extend(handle_broken_footnote_ref(req_uri, state))
+                Node::Text(t) => {
+                    // Link that gets not parsed because not valid
+                    if t.value.contains("](") {
+                        v.extend(handle_invalid_link(req_uri, state))
+                    }
+                    // LinkRef
+                    if t.value.contains("][") {
+                        v.extend(handle_broken_ref(req_uri, state))
+                    }
+                    // FootnoteRef
+                    if t.value.contains("[^") {
+                        v.extend(handle_broken_footnote_ref(req_uri, state))
+                    }
                 }
                 _ => {
                     v.append(&mut check_links(child, req_uri, state));
@@ -150,10 +152,7 @@ fn handle_invalid_link(req_uri: &Url, state: &State) -> Vec<BrokenLink> {
         .iter()
         .map(|broken_link_ref| BrokenLink {
             range: broken_link_ref.range,
-            message: format!(
-                "Invalid Link `{}`",
-                broken_link_ref.text
-            ),
+            message: format!("Invalid Link `{}`", broken_link_ref.text),
         })
         .collect()
 }

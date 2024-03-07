@@ -154,7 +154,6 @@ pub fn resolve_link<'a>(link: &'a Link, state: &'a State) -> ResolvedLink<'a> {
             } else {
                 format!("{}.md", link.url)
             };
-            log::info!("FILE: {:?}", &file);
             for (url, relative_path) in state.get_file_list() {
                 if relative_path == file {
                     return ResolvedLink::File {

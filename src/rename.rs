@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use lsp_types::{
-    Position, PrepareRenameResponse, Range, RenameParams, TextDocumentPositionParams, TextEdit, Url
+    Position, PrepareRenameResponse, Range, RenameParams, TextDocumentPositionParams, TextEdit, Url,
 };
 use markdown::mdast::{
-    Definition, FootnoteDefinition, FootnoteReference, Heading, LinkReference, Node, Text,
+    Definition, FootnoteDefinition, FootnoteReference, Heading, LinkReference, Node, ReferenceKind, Text
 };
 
 use crate::{
@@ -31,7 +31,7 @@ pub fn prepare_rename(
         .and_then(|node| prepare_rename_range(node).map(PrepareRenameResponse::Range))
 }
 
-pub fn rename( params: &RenameParams, state: &State,) -> Option<HashMap<Url, Vec<TextEdit>>> {
+pub fn rename(params: &RenameParams, state: &State) -> Option<HashMap<Url, Vec<TextEdit>>> {
     let req_uri = &params.text_document_position.text_document.uri;
     let new_name = &params.new_name;
     let req_pos = &params.text_document_position.position;
@@ -60,6 +60,7 @@ pub fn rename( params: &RenameParams, state: &State,) -> Option<HashMap<Url, Vec
             let mut def_changes = rename_definition(new_name, req_uri, link_ref, state);
             let link_ref_changes =
                 rename_link_refs(new_name, req_uri, &link_ref.identifier, state)?;
+            log::info!("LINK REF CHANGES: {:#?}", link_ref_changes);
             merge_maps(&mut def_changes, link_ref_changes);
             Some(def_changes)
         }
@@ -132,10 +133,14 @@ fn heading_rename_range(heading: &Heading) -> Option<Range> {
 }
 
 fn link_ref_rename_range(link_ref: &LinkReference) -> Option<Range> {
+    let kind = link_ref.reference_kind;
     let text = get_text_child(&link_ref.children)?;
     link_ref.position.as_ref().map(|link_ref_pos| {
         let start_line = link_ref_pos.start.line - 1;
-        let start_char = link_ref_pos.start.column + text.value.len() + 2;
+        let start_char = match kind {
+            ReferenceKind::Full =>  link_ref_pos.start.column + text.value.len() + 2,
+            _ => link_ref_pos.start.column,
+        };
         let end_line = link_ref_pos.end.line - 1;
         let end_char = link_ref_pos.end.column - 2;
         rename_range(start_line, end_line, start_char, end_char)

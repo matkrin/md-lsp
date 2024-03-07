@@ -70,7 +70,6 @@ pub fn find_heading_for_link<'a>(node: &'a Node, link: &Link) -> Option<&'a Head
             if value == &link.url.replace('#', "")
                 || value.to_lowercase().replace(' ', "-") == link.url.replace('#', "")
             {
-                log::info!("IN FIND H: {:?}", &heading);
                 return Some(heading);
             }
         }
@@ -88,7 +87,6 @@ pub fn find_heading_for_link_identifier<'a>(
             if value == &link_identifier.replace('#', "")
                 || value.to_lowercase().replace(' ', "-") == link_identifier.replace('#', "")
             {
-                log::info!("IN FIND H: {:?}", &heading);
                 return Some(heading);
             }
         }

@@ -113,6 +113,12 @@ impl State {
         Some(sliced)
     }
 
+    pub fn cursor_char(&self, uri: &Url, pos: &lsp_types::Position) -> Option<char> {
+        let doc = self.buffer_for_uri(uri)?;
+        let line = doc.lines().nth(pos.line as usize)?;
+        line.chars().nth((pos.character.checked_sub(1))? as usize)
+    }
+
     pub fn peek_behind_position(&self, uri: &Url, pos: &lsp_types::Position) -> Option<char> {
         let doc = self.buffer_for_uri(uri)?;
         let line = doc.lines().nth(pos.line as usize)?;

@@ -16,10 +16,14 @@ use crate::{
 pub fn completion(params: CompletionParams, state: &State) -> Option<CompletionList> {
     let req_uri = params.text_document_position.text_document.uri;
     let position = params.text_document_position.position;
-    let peek_behind = state.peek_behind_position(&req_uri, &position);
-    let context = params.context?;
     // let trigger_kind = context.trigger_kind;
-    let trigger_character = context.trigger_character;
+    let trigger_character = match params.context {
+        Some(context) => context.trigger_character,
+        None => state.cursor_char(&req_uri, &position).map(|c| c.to_string()),
+    };
+    let peek_behind = state.peek_behind_position(&req_uri, &position);
+    log::info!("CURSOR CHAR : {:?}, PEEK BEHIND: {:?}", &trigger_character, &peek_behind);
+
     match trigger_character.as_deref() {
         Some("(") if peek_behind == Some(']') => link_completion(&req_uri, state),
         Some("[") if peek_behind == Some('[') => wikilink_completion(&req_uri, state),
@@ -60,13 +64,13 @@ fn link_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
         })
         .collect();
     completion_items.map(|comp_items| CompletionList {
-        is_incomplete: true,
+        is_incomplete: false,
         items: comp_items,
     })
 }
 
 fn wikilink_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
-    let root_uri = PathBuf::from(&state.workspace_folder()?.name);
+    let root_uri = PathBuf::from(&state.workspace_folder()?.uri.path());
     let req_filepath = req_uri.to_file_path().ok()?;
     let req_filename = req_filepath.file_name()?;
     let completion_items: Option<Vec<CompletionItem>> = state
@@ -97,7 +101,7 @@ fn wikilink_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
         })
         .collect();
     completion_items.map(|comp_items| CompletionList {
-        is_incomplete: true,
+        is_incomplete: false,
         items: comp_items,
     })
 }
@@ -141,7 +145,7 @@ fn link_ref_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
         })
         .collect();
     Some(CompletionList {
-        is_incomplete: true,
+        is_incomplete: false,
         items: def_completion_items,
     })
 }
@@ -154,7 +158,6 @@ fn footnote_ref_completion(req_uri: &Url, state: &State) -> Option<CompletionLis
         .map(|footnote_def| {
             get_footnote_def_text(footnote_def).map(|text| CompletionItem {
                 label: footnote_def.identifier.clone(),
-                label_details: None,
                 kind: Some(CompletionItemKind::TEXT),
                 detail: Some(text.value.clone()),
                 ..CompletionItem::default()
@@ -162,7 +165,7 @@ fn footnote_ref_completion(req_uri: &Url, state: &State) -> Option<CompletionLis
         })
         .collect();
     completion_items.map(|items| CompletionList {
-        is_incomplete: true,
+        is_incomplete: false,
         items,
     })
 }

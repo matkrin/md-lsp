@@ -70,6 +70,7 @@ pub enum ResolvedLink<'a> {
 }
 
 impl ResolvedLink<'_> {
+    /// The position of the Link
     pub fn link_position(&self) -> Option<&AstPosition> {
         match self {
             ResolvedLink::File { link, .. }
@@ -79,6 +80,7 @@ impl ResolvedLink<'_> {
         }
     }
 
+    /// The Url of the file, the Link links to
     pub fn file_uri(&self) -> Option<&Url> {
         match self {
             ResolvedLink::File { file_uri, .. }
@@ -88,6 +90,7 @@ impl ResolvedLink<'_> {
         }
     }
 
+    /// If Link links to a heading, return the text of this heading
     pub fn heading_text(&self) -> Option<&str> {
         match self {
             ResolvedLink::InternalHeading { heading, .. }
@@ -165,6 +168,7 @@ pub fn resolve_link<'a>(link: &'a Link, state: &'a State) -> ResolvedLink<'a> {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 struct ExtractedWikiLink {
     content: String,
     start_position: usize,
@@ -173,7 +177,7 @@ struct ExtractedWikiLink {
 
 impl ExtractedWikiLink {
     fn link_text_node(&self, start_line: usize) -> Node {
-        let value = "".to_string(); // TODO parse Wikilinks with `|` (everything before is value)
+        let value = "".to_string(); // TODO parse Wikilinks with `|` (everything after is value)
         let value_len = value.len();
         let link_text = Text {
             value,
@@ -260,5 +264,33 @@ pub fn parse_wiki_links(node: &mut Node) {
         for child in children {
             parse_wiki_links(child);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_wiki_links() {
+        let link_content_1 = "link content 1".to_string();
+        let link_content_2 = "link content 2".to_string();
+        let input = format!(
+            "[[{}]]\n\n# Heading \n\n[[{}]]",
+            link_content_1, link_content_2
+        );
+        let extracted = extract_wiki_links(&input);
+        let expected_1 = ExtractedWikiLink {
+            content: link_content_1,
+            start_position: 3,
+            line_number: 0,
+        };
+        let expected_2 = ExtractedWikiLink {
+            content: link_content_2,
+            start_position: 3,
+            line_number: 4,
+        };
+        assert_eq!(extracted[0], expected_1);
+        assert_eq!(extracted[1], expected_2);
     }
 }

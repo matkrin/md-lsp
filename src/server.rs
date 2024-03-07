@@ -1,7 +1,7 @@
 use anyhow::Result;
 use lsp_server::{Connection, Message, Notification, Response};
 use lsp_types::{
-    CodeActionParams, CompletionParams, Diagnostic, DiagnosticSeverity,
+    CodeActionParams, CompletionParams, CompletionResponse, Diagnostic, DiagnosticSeverity,
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
     DocumentFormattingParams, DocumentRangeFormattingParams, DocumentSymbolParams,
     GotoDefinitionParams, HoverParams, PublishDiagnosticsParams, ReferenceParams, RenameParams,
@@ -95,6 +95,7 @@ impl Server {
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_didChange
     fn handle_did_change(&self, not: lsp_server::Notification, state: &mut State) -> Result<()> {
         let params: DidChangeTextDocumentParams = serde_json::from_value(not.params)?;
+        log::info!("DID CHANGE PARAMS: {:#?}", &params);
         let change_event = params.content_changes.into_iter().last().unwrap();
         let uri = params.text_document.uri;
         state.set_buffer(&uri, change_event.text);
@@ -282,7 +283,8 @@ impl Server {
     fn handle_completion(&self, req: lsp_server::Request, state: &State) -> Result<()> {
         let params: CompletionParams = serde_json::from_value(req.params)?;
         let result = completion(params, state)
-            .and_then(|completion_list| serde_json::to_value(completion_list).ok());
+            .map(CompletionResponse::List)
+            .and_then(|completion_response| serde_json::to_value(completion_response).ok());
         let response = Response {
             id: req.id,
             result,

@@ -43,7 +43,7 @@ fn main() -> Result<()> {
         })),
         code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
         completion_provider: Some(lsp_types::CompletionOptions {
-            resolve_provider: None,
+            resolve_provider: Some(false),
             trigger_characters: Some(vec![
                 "[".to_string(),
                 "^".to_string(),
@@ -60,6 +60,7 @@ fn main() -> Result<()> {
         ..Default::default()
     })
     .unwrap();
+
     let initialization_params = match connection.initialize(server_capabilities) {
         Ok(it) => it,
         Err(e) => {
@@ -69,6 +70,7 @@ fn main() -> Result<()> {
             return Err(e.into());
         }
     };
+
     main_loop(connection, initialization_params)?;
     io_threads.join()?;
 
@@ -78,9 +80,10 @@ fn main() -> Result<()> {
 }
 
 fn main_loop(connection: Connection, params: serde_json::Value) -> Result<()> {
-    let _params: InitializeParams = serde_json::from_value(params).unwrap();
-    let work_space_folders = _params.workspace_folders;
-    log::info!("starting example main loop");
+    log::info!("Starting main loop");
+    let params: InitializeParams = serde_json::from_value(params)?;
+    log::info!("INIT PARAMS: {:#?}", &params);
+    let work_space_folders = params.workspace_folders;
 
     // else is single file mode, I guess
     let mut state = State::new();

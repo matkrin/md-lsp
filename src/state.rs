@@ -20,7 +20,7 @@ pub struct MdFile {
 #[derive(Debug, Default)]
 pub struct State {
     pub md_files: HashMap<Url, MdFile>,
-    pub workspace_folder: Option<WorkspaceFolder>,
+    workspace_folder: Option<WorkspaceFolder>,
 }
 
 impl State {
@@ -123,8 +123,8 @@ impl State {
         self.md_files
             .keys()
             .filter_map(|url| {
-                self.workspace_folder.as_ref().and_then(|wsf| {
-                    let root = PathBuf::from(&wsf.name);
+                self.workspace_folder().and_then(|wsf| {
+                    let root = PathBuf::from(&wsf.uri.path());
                     let file_path = url.to_file_path().ok()?;
                     let rel_path = relative_path(&root, &file_path)?;
                     Some((url, rel_path))

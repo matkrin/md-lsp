@@ -20,6 +20,7 @@ configs.md_lsp = {
     default_config = {
         name = "md-lsp",
         cmd = { "./target/debug/md-lsp" },
+        -- cmd = { "md-lsp" },
         filetypes = { "markdown" },
         root_dir = lspconfig.util.root_pattern('.git'),
         single_file_support = true,

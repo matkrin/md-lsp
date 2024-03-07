@@ -57,7 +57,6 @@ Markdown language server
 
 ## TODO
 
-- rename for Linkrefs with just [...]
 - improve diagnostics
 
 * [x] parse Wikilinks, no support for `[[...|...]]` yet

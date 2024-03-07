@@ -59,6 +59,7 @@ impl Server {
                         }
                         "textDocument/codeAction" => self.handle_code_action(req, &state)?,
                         "textDocument/completion" => self.handle_completion(req, &state)?,
+                        "shutdown" => self.handle_shutdown(req)?,
                         _ => {
                             log::info!("OTHER REQUEST: {:?}", req);
                         }
@@ -74,6 +75,7 @@ impl Server {
                     "workspace/didChangeWatchedFiles" => {
                         self.handle_did_change_watched_files(not)?
                     }
+                    "exit" => self.handle_exit(not),
                     _ => {
                         log::info!("OTHER NOTIFICATION: {:?}", not)
                     }
@@ -81,6 +83,23 @@ impl Server {
             }
         }
         Ok(())
+    }
+
+    /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#shutdown
+    fn handle_shutdown(&self, req: lsp_server::Request) -> Result<()> {
+        log::info!("SHUTDOWN REQ: {:?}", &req);
+        let response = Response {
+            id: req.id,
+            result: None,
+            error: None,
+        };
+        self.send(response)
+    }
+
+    /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#exit
+    fn handle_exit(&self, not: lsp_server::Notification) {
+        log::info!("EXIT NOT: {:?}", &not);
+        std::process::exit(0);
     }
 
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_didOpen

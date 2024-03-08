@@ -330,3 +330,64 @@ pub fn find_footnote_def_for_footnote_ref<'a>(
 
     traverse_ast!(node, find_footnote_def_for_footnote_ref, foot_ref)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use markdown::mdast::Node;
+    use markdown::unist::{Point, Position};
+
+    use crate::links::parse_wiki_links;
+
+    fn ast() -> Node {
+        let markdown = "# Heading 1";
+        let mut ast = markdown::to_mdast(markdown, &markdown::ParseOptions::gfm()).unwrap();
+        parse_wiki_links(&mut ast);
+        ast
+    }
+
+    #[test]
+    fn test_find_linkable_for_position() {
+        let ast = ast();
+        let expected = Heading {
+            children: vec![Node::Text(Text {
+                value: "Heading 1".to_string(),
+                position: Some(Position {
+                    start: Point {
+                        line: 1,
+                        column: 3,
+                        offset: 2,
+                    },
+                    end: Point {
+                        line: 1,
+                        column: 12,
+                        offset: 11,
+                    },
+                }),
+            })],
+            position: Some(Position {
+                start: Point {
+                    line: 1,
+                    column: 1,
+                    offset: 0,
+                },
+                end: Point {
+                    line: 1,
+                    column: 12,
+                    offset: 11,
+                },
+            }),
+            depth: 1,
+        };
+        let linkable = find_linkable_for_position(&ast, 0, 0);
+        let linkable_2 = find_linkable_for_position(&ast, 0, 11);
+        assert_eq!(linkable, Some(&Node::Heading(expected.clone())).clone());
+        assert_eq!(linkable_2, Some(&Node::Heading(expected.clone())).clone());
+
+        let linkable_3 = find_linkable_for_position(&ast, 2, 2);
+        let linkable_4 = find_linkable_for_position(&ast, 0, 12);
+        assert_eq!(linkable_3, None);
+        assert_eq!(linkable_4, None);
+    }
+}

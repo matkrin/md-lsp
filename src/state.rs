@@ -63,6 +63,7 @@ impl State {
         self.md_files = md_files
             .into_iter()
             .map(|file| {
+                log::info!("INDEXING: {:#?}", &file);
                 let buffer = fs::read_to_string(&file).unwrap();
                 let mut ast = markdown::to_mdast(&buffer, &markdown::ParseOptions::gfm()).unwrap();
                 parse_wiki_links(&mut ast);

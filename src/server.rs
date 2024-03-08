@@ -1,5 +1,14 @@
 use anyhow::Result;
-use lsp_server::{Connection, Message, Notification, Response};
+use lsp_server::{Connection, Message, Notification, RequestId, Response};
+use lsp_types::notification::{
+    DidChangeTextDocument, DidChangeWatchedFiles, DidCloseTextDocument, DidOpenTextDocument, Exit,
+    Notification as _,
+};
+use lsp_types::request::{
+    CodeActionRequest, Completion, DocumentDiagnosticRequest, DocumentSymbolRequest, Formatting,
+    GotoDefinition, HoverRequest, PrepareRenameRequest, RangeFormatting, References, Rename,
+    Request, Shutdown, WorkspaceSymbolRequest,
+};
 use lsp_types::{
     CodeActionParams, CompletionParams, CompletionResponse, Diagnostic, DiagnosticSeverity,
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
@@ -41,25 +50,25 @@ impl Server {
                         return Ok(());
                     }
                     match req.method.as_ref() {
-                        "textDocument/definition" => self.handle_defintion(req, &mut state)?,
-                        "textDocument/hover" => self.handle_hover(req, &mut state)?,
-                        "textDocument/references" => self.handle_references(req, &mut state)?,
-                        "textDocument/documentSymbol" => {
+                        GotoDefinition::METHOD => self.handle_defintion(req, &mut state)?,
+                        HoverRequest::METHOD => self.handle_hover(req, &mut state)?,
+                        References::METHOD => self.handle_references(req, &mut state)?,
+                        DocumentSymbolRequest::METHOD => {
                             self.handle_document_symbol(req, &mut state)?
                         }
-                        "workspace/symbol" => self.handle_workspace_symbol(req, &mut state)?,
-                        "textDocument/formatting" => self.handle_formatting(req, &mut state)?,
-                        "textDocument/rangeFormatting" => {
-                            self.handle_range_formatting(req, &mut state)?
+                        WorkspaceSymbolRequest::METHOD => {
+                            self.handle_workspace_symbol(req, &mut state)?
                         }
-                        "textDocument/prepareRename" => self.handle_prepare_rename(req, &state)?,
-                        "textDocument/rename" => self.handle_rename(req, &state)?,
-                        "textDocument/diagnostic" => {
+                        Formatting::METHOD => self.handle_formatting(req, &mut state)?,
+                        RangeFormatting::METHOD => self.handle_range_formatting(req, &mut state)?,
+                        PrepareRenameRequest::METHOD => self.handle_prepare_rename(req, &state)?,
+                        Rename::METHOD => self.handle_rename(req, &state)?,
+                        DocumentDiagnosticRequest::METHOD => {
                             log::info!("DIAGNOSTIC REQUEST: {:?}", req);
                         }
-                        "textDocument/codeAction" => self.handle_code_action(req, &state)?,
-                        "textDocument/completion" => self.handle_completion(req, &state)?,
-                        "shutdown" => self.handle_shutdown(req)?,
+                        CodeActionRequest::METHOD => self.handle_code_action(req, &state)?,
+                        Completion::METHOD => self.handle_completion(req, &state)?,
+                        Shutdown::METHOD => self.handle_shutdown(req)?,
                         _ => {
                             log::info!("OTHER REQUEST: {:?}", req);
                         }
@@ -69,13 +78,11 @@ impl Server {
                     log::info!("GOT RESPONSE: {resp:?}");
                 }
                 Message::Notification(not) => match not.method.as_ref() {
-                    "textDocument/didOpen" => self.handle_did_open(not, &mut state)?,
-                    "textDocument/didChange" => self.handle_did_change(not, &mut state)?,
-                    "textDocument/didClose" => self.handle_did_close(not)?,
-                    "workspace/didChangeWatchedFiles" => {
-                        self.handle_did_change_watched_files(not)?
-                    }
-                    "exit" => self.handle_exit(not),
+                    DidOpenTextDocument::METHOD => self.handle_did_open(not, &mut state)?,
+                    DidChangeTextDocument::METHOD => self.handle_did_change(not, &mut state)?,
+                    DidCloseTextDocument::METHOD => self.handle_did_close(not)?,
+                    DidChangeWatchedFiles::METHOD => self.handle_did_change_watched_files(not)?,
+                    Exit::METHOD => self.handle_exit(not),
                     _ => {
                         log::info!("OTHER NOTIFICATION: {:?}", not)
                     }

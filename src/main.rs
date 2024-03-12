@@ -11,10 +11,12 @@ use md_lsp::{server::Server, state::State};
 fn main() -> Result<()> {
     // Note that  we must have our logging only write out to stderr.
 
+    let mut log_file_path = std::env::temp_dir();
+    log_file_path.push("md-lsp.log");
     let log_file = File::options()
         .create(true)
         .append(true)
-        .open("./log.log")
+        .open(&log_file_path)
         .expect("Couldn't open log file");
     structured_logger::Builder::with_level("TRACE")
         .with_default_writer(structured_logger::json::new_writer(log_file))

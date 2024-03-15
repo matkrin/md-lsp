@@ -92,7 +92,7 @@ two = np.sqrt(4)
 
 ### Links
 
-You can find this repository [here][https://github.com/matkrin/md-lsp]
+You can find this repository [here](https://github.com/matkrin/md-lsp)
 
 ### Images
 
@@ -103,17 +103,13 @@ You can find this repository [here][https://github.com/matkrin/md-lsp]
 
 Here is a simple footnote[^1].
 
-A footnote can also have multiple lines[^2].
+A footnote can also have multiple lines[^multi].
 
-Test[^3]
 
 [^1]: My reference.
 
-[^2]: To add line breaks within a footnote, prefix new lines with 2 spaces. This
+[^multi]: To add line breaks within a footnote, prefix new lines with 2 spaces. This
   is a second line.
-
-[^3]: To add line breaks within a footnote, prefix new lines with 2 spaces. This
-is a second line.
 
 
 ### Tables
@@ -130,15 +126,20 @@ White in hex: `#ffffff`; black as rgb: `rgb(0, 0, 0)`
 
 ### Alerts
 
-> [!NOTE] Useful information that users should know, even when skimming content.
+> [!NOTE]
+> Useful information that users should know, even when skimming content.
 
-> [!TIP] Helpful advice for doing things better or more easily.
+> [!TIP]
+> Helpful advice for doing things better or more easily.
 
-> [!IMPORTANT] Key information users need to know to achieve their goal.
+> [!IMPORTANT]
+> Key information users need to know to achieve their goal.
 
-> [!WARNING] Urgent info that needs immediate user attention to avoid problems.
+> [!WARNING]
+> Urgent info that needs immediate user attention to avoid problems.
 
-> [!CAUTION] Advises about risks or negative outcomes of certain actions.
+> [!CAUTION]
+> Advises about risks or negative outcomes of certain actions.
 
 ### Comments
 

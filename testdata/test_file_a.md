@@ -8,7 +8,7 @@ all headings.
 
 [[testdata/test_file_a#Working Links]]
 
-()[testdata/test_file_a.md#working-links]
+[](testdata/test_file_a.md#working-links)
 
 ## To internal headings
 
@@ -22,15 +22,16 @@ all headings.
 
 [[README#Features]]
 
-[](README.md)
+[Link to README](README.md)
 
-[](README.md#features)
+[Link to README, features](README.md#features)
 
 [[testdata/test-file-b#Working Footnotes]]
 [[testdata/test file c#Lists]]
 
-[](testdata/test-file-b.md#working-footnotes)
-[](testdata/test file c.md#code)
+[Link to test file b, working footnotes](testdata/test-file-b.md#working-footnotes)
+
+[Link to test file c, code](testdata/test file c.md#code)
 
 # Broken links
 
@@ -40,7 +41,7 @@ These links should all show diagnostics.
 
 [[#Non existent]]
 
-()[#non-existent]
+[Try but][#non-existent]
 
 ## To non-existent file
 
@@ -50,4 +51,4 @@ These links should all show diagnostics.
 
 [[testdata/test_file_a#Working-Links]]
 
-()[testdata/test_file_a#Working Links]
+[](testdata/test_file_a#Working Links)

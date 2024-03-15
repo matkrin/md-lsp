@@ -28,3 +28,10 @@ regex = "1.10.3"
 serde = "1.0.195"
 serde_json = "1.0.111"
 structured-logger = "1.0.3"
+
+[dev-dependencies]
+insta = { version = "1.36.1", features = ["yaml"] }
+
+[profile.dev.package]
+insta.opt-level = 3
+similar.opt-level = 3

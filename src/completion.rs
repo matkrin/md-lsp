@@ -51,7 +51,7 @@ fn link_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
                 let label = if relative_path.as_bytes() == req_filename.as_bytes() {
                     format!( "#{}",  heading_text.to_lowercase().replace(' ', "-"))
                 } else {
-                    format!( "{}#{}", relative_path, heading_text.to_lowercase().replace(' ', "-"))
+                    format!( "/{}#{}", relative_path, heading_text.to_lowercase().replace(' ', "-"))
                 };
 
                 Some(CompletionItem {
@@ -88,7 +88,7 @@ fn wikilink_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
                     format!("#{}", heading_text)
                 } else {
                     let path = relative_path.split_once('.')?.0;
-                    format!("{}#{}", path, heading_text)
+                    format!("/{}#{}", path, heading_text)
                 };
 
                 Some(CompletionItem {

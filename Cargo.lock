@@ -426,6 +426,7 @@ dependencies = [
  "lsp-server",
  "lsp-types",
  "markdown",
+ "percent-encoding",
  "regex",
  "serde",
  "serde_json",

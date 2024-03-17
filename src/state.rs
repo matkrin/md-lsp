@@ -133,17 +133,17 @@ impl State {
                 self.workspace_folder().and_then(|wsf| {
                     let root = PathBuf::from(&wsf.uri.path());
                     let file_path = url.to_file_path().ok()?;
-                    let rel_path = relative_path(&root, &file_path)?;
-                    Some((url, rel_path))
+                    let path_from_root = path_from_root(&root, &file_path)?;
+                    Some((url, path_from_root))
                 })
             })
             .collect()
     }
 }
 
-pub fn relative_path(from: &Path, to: &Path) -> Option<String> {
+pub fn path_from_root(from: &Path, to: &Path) -> Option<String> {
     if let Ok(rel) = to.strip_prefix(from) {
-        Some(rel.to_string_lossy().into_owned())
+        Some(format!("/{}", rel.to_string_lossy()))
     } else {
         None
     }

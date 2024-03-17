@@ -57,9 +57,6 @@ Markdown language server
 
 ## TODO
 
-- improve diagnostics
-- wikilinks without path to the linked file (just in helix)
-
 * [x] parse Wikilinks, no support for `[[...|...]]` yet
 
 * [x] hover:

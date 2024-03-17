@@ -341,8 +341,10 @@ mod tests {
     use crate::links::parse_wiki_links;
 
     fn ast() -> Node {
-        let markdown = "# Heading 1";
-        let mut ast = markdown::to_mdast(markdown, &markdown::ParseOptions::gfm()).unwrap();
+        let markdown = std::fs::read_to_string(r#"testdata/test file c.md"#)
+            .expect("test file does not exists");
+        let mut ast = markdown::to_mdast(&markdown, &markdown::ParseOptions::gfm())
+            .expect("markdown can't be parsed");
         parse_wiki_links(&mut ast);
         ast
     }
@@ -355,39 +357,82 @@ mod tests {
                 value: "Heading 1".to_string(),
                 position: Some(Position {
                     start: Point {
-                        line: 1,
+                        line: 30,
                         column: 3,
-                        offset: 2,
+                        offset: 791,
                     },
                     end: Point {
-                        line: 1,
+                        line: 30,
                         column: 12,
-                        offset: 11,
+                        offset: 800,
                     },
                 }),
             })],
             position: Some(Position {
                 start: Point {
-                    line: 1,
+                    line: 30,
                     column: 1,
-                    offset: 0,
+                    offset: 789,
                 },
                 end: Point {
-                    line: 1,
+                    line: 30,
                     column: 12,
-                    offset: 11,
+                    offset: 800,
                 },
             }),
             depth: 1,
         };
-        let linkable = find_linkable_for_position(&ast, 0, 0);
-        let linkable_2 = find_linkable_for_position(&ast, 0, 11);
+        let linkable = find_linkable_for_position(&ast, 29, 0);
+        let linkable_2 = find_linkable_for_position(&ast, 29, 11);
         assert_eq!(linkable, Some(&Node::Heading(expected.clone())).clone());
         assert_eq!(linkable_2, Some(&Node::Heading(expected.clone())).clone());
 
-        let linkable_3 = find_linkable_for_position(&ast, 2, 2);
-        let linkable_4 = find_linkable_for_position(&ast, 0, 12);
+        let linkable_3 = find_linkable_for_position(&ast, 28, 2);
+        let linkable_4 = find_linkable_for_position(&ast, 1, 0);
         assert_eq!(linkable_3, None);
         assert_eq!(linkable_4, None);
+        let linkable_5 = find_linkable_for_position(&ast, 103, 27);
+        assert!(linkable_5.is_some());
+    }
+
+    #[test]
+    fn test_find_definition_for_position() {
+        let ast = ast();
+        let expected = Heading {
+            children: vec![Node::Text(Text {
+                value: "Heading 1".to_string(),
+                position: Some(Position {
+                    start: Point {
+                        line: 30,
+                        column: 3,
+                        offset: 791,
+                    },
+                    end: Point {
+                        line: 30,
+                        column: 12,
+                        offset: 800,
+                    },
+                }),
+            })],
+            position: Some(Position {
+                start: Point {
+                    line: 30,
+                    column: 1,
+                    offset: 789,
+                },
+                end: Point {
+                    line: 30,
+                    column: 12,
+                    offset: 800,
+                },
+            }),
+            depth: 1,
+        };
+        let linkable = find_definition_for_position(&ast, 29, 0);
+        let linkable_2 = find_definition_for_position(&ast, 29, 11);
+        assert_eq!(linkable, Some(&Node::Heading(expected.clone())).clone());
+        assert_eq!(linkable_2, Some(&Node::Heading(expected.clone())).clone());
+        let linkable_3 = find_definition_for_position(&ast, 108, 2);
+        assert!(linkable_3.is_some());
     }
 }

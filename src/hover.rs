@@ -71,9 +71,6 @@ fn handle_link(link: &Link, state: &State) -> Option<String> {
 
 fn handle_link_heading(target_uri: &Url, heading: &Heading, state: &State) -> Option<String> {
     let target_ast = state.ast_for_uri(target_uri)?;
-
-    log::info!("LINK TO target_uri: {:?}", &target_uri);
-    log::info!("LINK TO Heading: {:?}", &heading);
     let linked_heading_pos = heading.position.as_ref()?;
     let depth = heading.depth;
     match find_next_heading(target_ast, linked_heading_pos.end.line, depth) {
@@ -108,7 +105,6 @@ fn handle_link_heading(target_uri: &Url, heading: &Heading, state: &State) -> Op
 }
 
 fn handle_link_other_file(target_uri: &Url, state: &State) -> Option<String> {
-    log::info!("LINK TO OTHER FILE FUNC TARGET: {:?}", target_uri);
     state.buffer_for_uri(target_uri).map(ToString::to_string)
 }
 

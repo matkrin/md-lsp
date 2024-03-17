@@ -60,7 +60,6 @@ pub fn rename(params: &RenameParams, state: &State) -> Option<HashMap<Url, Vec<T
             let mut def_changes = rename_definition(new_name, req_uri, link_ref, state);
             let link_ref_changes =
                 rename_link_refs(new_name, req_uri, &link_ref.identifier, state)?;
-            log::info!("LINK REF CHANGES: {:#?}", link_ref_changes);
             merge_maps(&mut def_changes, link_ref_changes);
             Some(def_changes)
         }

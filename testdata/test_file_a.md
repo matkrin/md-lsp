@@ -8,11 +8,11 @@ all headings.
 
 [[/testdata/test_file_a#Working Links]]
 
-[](/testdata/test_file_a.md#working-links)
+[working links](/testdata/test_file_a.md#working-links)
 
-[](/testdata/test%20file%20c.md#some-markdown-features-(github-flavored))
+[to test file c](/testdata/test%20file%20c.md#some-markdown-features-(github-flavored))
 
-[](/testdata/test%20file%20c.md#heading-1)
+[to test file c](/testdata/test%20file%20c.md#heading-1)
 
 ## To internal headings
 

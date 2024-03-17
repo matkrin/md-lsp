@@ -6,9 +6,9 @@ all headings.
 
 ## As autocompleted
 
-[[testdata/test_file_a#Working Links]]
+[[/testdata/test_file_a#Working Links]]
 
-[](testdata/test_file_a.md#working-links)
+[](/testdata/test_file_a.md#working-links)
 
 ## To internal headings
 
@@ -18,20 +18,20 @@ all headings.
 
 ## To another file
 
-[[README]]
+[[/README]]
 
-[[README#Features]]
+[[/README#Features]]
 
-[Link to README](README.md)
+[Link to README](/README.md)
 
-[Link to README, features](README.md#features)
+[Link to README, heading feature](/README.md#features)
 
-[[testdata/test-file-b#Working Footnotes]]
-[[testdata/test file c#Lists]]
+[[/testdata/test-file-b#Working Footnotes]]
+[[/testdata/test file c#Lists]]
 
-[Link to test file b, working footnotes](testdata/test-file-b.md#working-footnotes)
+[Link to test file b, working footnotes](/testdata/test-file-b.md#working-footnotes)
 
-[Link to test file c, code](testdata/test file c.md#code)
+[Link to test file c, code](/testdata/test-file-c.md#code)
 
 # Broken links
 
@@ -41,7 +41,7 @@ These links should all show diagnostics.
 
 [[#Non existent]]
 
-[Try but][#non-existent]
+[Try but](#non-existent)
 
 ## To non-existent file
 
@@ -52,3 +52,5 @@ These links should all show diagnostics.
 [[testdata/test_file_a#Working-Links]]
 
 [](testdata/test_file_a#Working Links)
+
+[Link to test file c, code](/testdata/test file c.md#code)

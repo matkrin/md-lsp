@@ -33,6 +33,8 @@ all headings.
 
 [Link to test file c, code](/testdata/test-file-c.md#code)
 
+[with escaping](/testdata/test%20file%20c.md#code)
+
 # Broken links
 
 These links should all show diagnostics.

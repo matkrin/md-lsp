@@ -10,6 +10,21 @@ use crate::{
     state::State,
 };
 
+use percent_encoding::{AsciiSet, CONTROLS};
+
+/// https://url.spec.whatwg.org/#fragment-percent-encode-set
+const FRAGMENT: &AsciiSet = &CONTROLS.add(b' ').add(b'"');
+
+pub fn url_encode(s: &str) -> String {
+    percent_encoding::percent_encode(s.as_bytes(), FRAGMENT).to_string()
+}
+
+pub fn url_decode(s: &str) -> String {
+    percent_encoding::percent_decode(s.as_bytes())
+        .decode_utf8_lossy()
+        .to_string()
+}
+
 #[derive(Debug)]
 pub enum MdLink<'a> {
     NormalLink(&'a Link),
@@ -122,11 +137,18 @@ pub fn resolve_link<'a>(link: &'a Link, state: &'a State) -> ResolvedLink<'a> {
         }
         // link with referece to heading `...#...`
         Some((file_ref_text, heading_ref_text)) => {
-            // allow both: with suffix and without
-            let file = if file_ref_text.ends_with(".md") {
-                file_ref_text.into()
-            } else {
-                format!("{}.md", file_ref_text)
+            let file = match md_link {
+                MdLink::NormalLink(_) => {
+                    url_decode(file_ref_text)
+                },
+                MdLink::WikiLink(_) => {
+                    // allow both for wikilinks: with suffix and without
+                    if file_ref_text.ends_with(".md") {
+                        file_ref_text.into()
+                    } else {
+                        format!("{}.md", file_ref_text)
+                    }
+                },
             };
 
             for (url, relative_path) in state.get_file_list() {

@@ -10,6 +10,10 @@ all headings.
 
 [](/testdata/test_file_a.md#working-links)
 
+[](/testdata/test%20file%20c.md#some-markdown-features-(github-flavored))
+
+[](/testdata/test%20file%20c.md#heading-1)
+
 ## To internal headings
 
 [[#As autocompleted]]
@@ -26,12 +30,9 @@ all headings.
 
 [Link to README, heading feature](/README.md#features)
 
-[[/testdata/test-file-b#Working Footnotes]]
-[[/testdata/test file c#Lists]]
+[[/testdata/test-file-b#Working Footnotes]] [[/testdata/test file c#Lists]]
 
 [Link to test file b, working footnotes](/testdata/test-file-b.md#working-footnotes)
-
-[Link to test file c, code](/testdata/test-file-c.md#code)
 
 [with escaping](/testdata/test%20file%20c.md#code)
 
@@ -55,4 +56,8 @@ These links should all show diagnostics.
 
 [](testdata/test_file_a#Working Links)
 
+## Should be url-encoded:
+
 [Link to test file c, code](/testdata/test file c.md#code)
+
+[Link to test file c, code](/testdata/test-file-c.md#code)

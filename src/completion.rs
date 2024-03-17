@@ -10,7 +10,7 @@ use crate::{
         find_defintions, find_footnote_definitions, find_headings, find_next_heading,
         get_heading_text,
     },
-    state::State,
+    state::State, links::url_encode,
 };
 
 pub fn completion(params: CompletionParams, state: &State) -> Option<CompletionList> {
@@ -51,7 +51,7 @@ fn link_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
                 let label = if relative_path.as_bytes() == req_filename.as_bytes() {
                     format!( "#{}",  heading_text.to_lowercase().replace(' ', "-"))
                 } else {
-                    format!( "/{}#{}", relative_path, heading_text.to_lowercase().replace(' ', "-"))
+                    format!( "/{}#{}", url_encode(&relative_path), heading_text.to_lowercase().replace(' ', "-"))
                 };
 
                 Some(CompletionItem {

@@ -1,0 +1,54 @@
+---
+source: src/ast.rs
+expression: footnote_defs
+---
+[
+    FootnoteDefinition {
+        children: [
+            Paragraph {
+                children: [
+                    Text {
+                        value: "My reference.",
+                        position: Some(
+                            110:7-110:20 (1884-1897),
+                        ),
+                    },
+                ],
+                position: Some(
+                    110:7-110:20 (1884-1897),
+                ),
+            },
+        ],
+        position: Some(
+            110:1-111:1 (1878-1898),
+        ),
+        identifier: "1",
+        label: Some(
+            "1",
+        ),
+    },
+    FootnoteDefinition {
+        children: [
+            Paragraph {
+                children: [
+                    Text {
+                        value: "To add line breaks within a footnote, prefix new lines with 2 spaces. This\nis a second line.",
+                        position: Some(
+                            112:11-113:20 (1909-2003),
+                        ),
+                    },
+                ],
+                position: Some(
+                    112:11-113:20 (1909-2003),
+                ),
+            },
+        ],
+        position: Some(
+            112:1-115:1 (1899-2005),
+        ),
+        identifier: "multi",
+        label: Some(
+            "multi",
+        ),
+    },
+]

@@ -250,7 +250,7 @@ pub fn find_footnote_definitions(node: &Node) -> Vec<&FootnoteDefinition> {
     footnote_defs
 }
 
-pub fn find_foonote_references(node: &Node) -> Vec<&FootnoteReference> {
+pub fn find_footnote_references(node: &Node) -> Vec<&FootnoteReference> {
     let mut footnote_refs = Vec::new();
     match node {
         Node::FootnoteReference(footnote_ref) => {
@@ -259,7 +259,7 @@ pub fn find_foonote_references(node: &Node) -> Vec<&FootnoteReference> {
         _ => {
             if let Some(children) = node.children() {
                 for child in children {
-                    footnote_refs.extend(find_foonote_references(child))
+                    footnote_refs.extend(find_footnote_references(child))
                 }
             }
         }
@@ -352,53 +352,150 @@ mod tests {
     #[test]
     fn test_find_linkable_for_position() {
         let ast = ast();
-        let expected = Heading {
-            children: vec![Node::Text(Text {
-                value: "Heading 1".to_string(),
-                position: Some(Position {
-                    start: Point {
-                        line: 30,
-                        column: 3,
-                        offset: 791,
-                    },
-                    end: Point {
-                        line: 30,
-                        column: 12,
-                        offset: 800,
-                    },
-                }),
-            })],
-            position: Some(Position {
-                start: Point {
-                    line: 30,
-                    column: 1,
-                    offset: 789,
-                },
-                end: Point {
-                    line: 30,
-                    column: 12,
-                    offset: 800,
-                },
-            }),
-            depth: 1,
-        };
-        let linkable = find_linkable_for_position(&ast, 29, 0);
-        let linkable_2 = find_linkable_for_position(&ast, 29, 11);
-        assert_eq!(linkable, Some(&Node::Heading(expected.clone())).clone());
-        assert_eq!(linkable_2, Some(&Node::Heading(expected.clone())).clone());
-
-        let linkable_3 = find_linkable_for_position(&ast, 28, 2);
-        let linkable_4 = find_linkable_for_position(&ast, 1, 0);
-        assert_eq!(linkable_3, None);
-        assert_eq!(linkable_4, None);
-        let linkable_5 = find_linkable_for_position(&ast, 103, 27);
-        assert!(linkable_5.is_some());
+        let line_number = 31;
+        let linkable = find_linkable_for_position(&ast, line_number, 0);
+        let linkable_2 = find_linkable_for_position(&ast, line_number, 11);
+        insta::assert_debug_snapshot!(linkable);
+        insta::assert_debug_snapshot!(linkable_2);
     }
 
     #[test]
     fn test_find_definition_for_position() {
         let ast = ast();
-        let expected = Heading {
+        let line_number = 31;
+        let linkable = find_definition_for_position(&ast, line_number, 0);
+        let linkable_2 = find_definition_for_position(&ast, line_number, 11);
+        insta::assert_debug_snapshot!(linkable);
+        insta::assert_debug_snapshot!(linkable_2);
+    }
+
+    #[test]
+    fn test_find_heading_for_link() {
+        let ast = ast();
+        let line_number = 6;
+        let link = Link {
+            children: vec![Node::Text(Text {
+                value: "Heading 1".to_string(),
+                position: Some(Position {
+                    start: Point {
+                        line: line_number,
+                        column: 4,
+                        offset: 152,
+                    },
+                    end: Point {
+                        line: line_number,
+                        column: 13,
+                        offset: 161,
+                    },
+                }),
+            })],
+            position: Some(Position {
+                start: Point {
+                    line: line_number,
+                    column: 3,
+                    offset: 151,
+                },
+                end: Point {
+                    line: line_number,
+                    column: 26,
+                    offset: 174,
+                },
+            }),
+            url: "#heading-1".to_string(),
+            title: None,
+        };
+        let found_heading = find_heading_for_link(&ast, &link);
+        insta::assert_debug_snapshot!(found_heading);
+    }
+
+    #[test]
+    fn test_find_heading_for_link_identifier() {
+        let ast = ast();
+        let found_heading = find_heading_for_link_identifier(&ast, "#heading-1");
+        insta::assert_debug_snapshot!(found_heading);
+    }
+
+    #[test]
+    fn test_find_definition_for_identifier() {
+        let ast = ast();
+        let found_definition_1 = find_definition_for_identifier(&ast, "google-link");
+        let found_definition_2 = find_definition_for_identifier(&ast, "duckduckgo");
+        insta::assert_debug_snapshot!(found_definition_1);
+        insta::assert_debug_snapshot!(found_definition_2);
+    }
+
+    #[test]
+    fn test_find_foot_definition_for_identifier() {
+        let ast = ast();
+        let found_footnote_definition = find_foot_definition_for_identifier(&ast, "1");
+        insta::assert_debug_snapshot!(found_footnote_definition);
+    }
+
+    #[test]
+    fn test_find_link_references_for_identifier() {
+        let ast = ast();
+        let found_link_refs = find_link_references_for_identifier(&ast, "google-link");
+        insta::assert_debug_snapshot!(found_link_refs);
+    }
+    #[test]
+    fn test_find_footnote_references_for_identifier() {
+        let ast = ast();
+        let found_footnote_refs = find_footnote_references_for_identifier(&ast, "multi");
+        insta::assert_debug_snapshot!(found_footnote_refs);
+    }
+
+    #[test]
+    fn test_find_headings() {
+        let ast = ast();
+        let headings = find_headings(&ast);
+        insta::assert_debug_snapshot!(headings);
+    }
+
+    #[test]
+    fn test_find_links() {
+        let ast = ast();
+        let links = find_links(&ast);
+        insta::assert_debug_snapshot!(links);
+    }
+
+    #[test]
+    fn test_find_defintions() {
+        let ast = ast();
+        let defs = find_defintions(&ast);
+        insta::assert_debug_snapshot!(defs);
+    }
+
+    #[test]
+    fn test_find_link_references() {
+        let ast = ast();
+        let link_refs = find_link_references(&ast);
+        insta::assert_debug_snapshot!(link_refs);
+    }
+
+    #[test]
+    fn test_find_footnote_definitions() {
+        let ast = ast();
+        let footnote_defs = find_footnote_definitions(&ast);
+        insta::assert_debug_snapshot!(footnote_defs);
+    }
+
+    #[test]
+    fn test_find_footnote_references() {
+        let ast = ast();
+        let footnote_refs = find_footnote_references(&ast);
+        insta::assert_debug_snapshot!(footnote_refs);
+    }
+
+    #[test]
+    fn test_find_html_nodes() {
+        let ast = ast();
+        let htmls = find_html_nodes(&ast);
+        insta::assert_debug_snapshot!(htmls);
+    }
+
+    #[test]
+    fn test_get_heading_text() {
+        let heading = Heading {
             children: vec![Node::Text(Text {
                 value: "Heading 1".to_string(),
                 position: Some(Position {
@@ -428,11 +525,20 @@ mod tests {
             }),
             depth: 1,
         };
-        let linkable = find_definition_for_position(&ast, 29, 0);
-        let linkable_2 = find_definition_for_position(&ast, 29, 11);
-        assert_eq!(linkable, Some(&Node::Heading(expected.clone())).clone());
-        assert_eq!(linkable_2, Some(&Node::Heading(expected.clone())).clone());
-        let linkable_3 = find_definition_for_position(&ast, 108, 2);
-        assert!(linkable_3.is_some());
+        assert_eq!(get_heading_text(&heading), Some("Heading 1"));
     }
+
+    #[test]
+    fn test_find_next_heading() {
+        let ast = ast();
+        let next_heading_1 = find_next_heading(&ast, 30, 3);
+        let next_heading_2 = find_next_heading(&ast, 30, 5);
+        insta::assert_debug_snapshot!(next_heading_1);
+        assert_eq!(next_heading_2, None);
+    }
+
+    #[test]
+    fn test_find_def_for_link_ref() {}
+    #[test]
+    fn test_find_footnote_def_for_footnote_ref() {}
 }

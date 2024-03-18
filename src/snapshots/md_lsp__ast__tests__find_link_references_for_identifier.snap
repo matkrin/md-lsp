@@ -1,0 +1,24 @@
+---
+source: src/ast.rs
+expression: found_link_refs
+---
+[
+    LinkReference {
+        children: [
+            Text {
+                value: "google",
+                position: Some(
+                    151:31-151:37 (2715-2721),
+                ),
+            },
+        ],
+        position: Some(
+            151:30-151:51 (2714-2735),
+        ),
+        reference_kind: Full,
+        identifier: "google-link",
+        label: Some(
+            "google-link",
+        ),
+    },
+]

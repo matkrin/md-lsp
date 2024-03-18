@@ -1,0 +1,42 @@
+---
+source: src/ast.rs
+expression: link_refs
+---
+[
+    LinkReference {
+        children: [
+            Text {
+                value: "duckduckgo",
+                position: Some(
+                    151:15-151:25 (2699-2709),
+                ),
+            },
+        ],
+        position: Some(
+            151:14-151:26 (2698-2710),
+        ),
+        reference_kind: Shortcut,
+        identifier: "duckduckgo",
+        label: Some(
+            "duckduckgo",
+        ),
+    },
+    LinkReference {
+        children: [
+            Text {
+                value: "google",
+                position: Some(
+                    151:31-151:37 (2715-2721),
+                ),
+            },
+        ],
+        position: Some(
+            151:30-151:51 (2714-2735),
+        ),
+        reference_kind: Full,
+        identifier: "google-link",
+        label: Some(
+            "google-link",
+        ),
+    },
+]

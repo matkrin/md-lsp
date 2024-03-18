@@ -1,0 +1,20 @@
+---
+source: src/ast.rs
+expression: linkable
+---
+Some(
+    Heading {
+        children: [
+            Text {
+                value: "Heading 2",
+                position: Some(
+                    32:4-32:13 (870-879),
+                ),
+            },
+        ],
+        position: Some(
+            32:1-32:13 (867-879),
+        ),
+        depth: 2,
+    },
+)

@@ -1,0 +1,328 @@
+---
+source: src/ast.rs
+expression: headings
+---
+[
+    Heading {
+        children: [
+            Text {
+                value: "Some Markdown features (github flavored)",
+                position: Some(
+                    1:3-1:43 (2-42),
+                ),
+            },
+        ],
+        position: Some(
+            1:1-1:43 (0-42),
+        ),
+        depth: 1,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Heading 1",
+                position: Some(
+                    31:3-31:12 (857-866),
+                ),
+            },
+        ],
+        position: Some(
+            31:1-31:12 (855-866),
+        ),
+        depth: 1,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Heading 2",
+                position: Some(
+                    32:4-32:13 (870-879),
+                ),
+            },
+        ],
+        position: Some(
+            32:1-32:13 (867-879),
+        ),
+        depth: 2,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Heading 3",
+                position: Some(
+                    33:5-33:14 (884-893),
+                ),
+            },
+        ],
+        position: Some(
+            33:1-33:14 (880-893),
+        ),
+        depth: 3,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Subscript",
+                position: Some(
+                    43:5-43:14 (993-1002),
+                ),
+            },
+        ],
+        position: Some(
+            43:1-43:14 (989-1002),
+        ),
+        depth: 3,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Superscript",
+                position: Some(
+                    47:5-47:16 (1024-1035),
+                ),
+            },
+        ],
+        position: Some(
+            47:1-47:16 (1020-1035),
+        ),
+        depth: 3,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Lists",
+                position: Some(
+                    51:5-51:10 (1085-1090),
+                ),
+            },
+        ],
+        position: Some(
+            51:1-51:10 (1081-1090),
+        ),
+        depth: 3,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Unordered",
+                position: Some(
+                    53:6-53:15 (1097-1106),
+                ),
+            },
+        ],
+        position: Some(
+            53:1-53:15 (1092-1106),
+        ),
+        depth: 4,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Ordered",
+                position: Some(
+                    59:6-59:13 (1132-1139),
+                ),
+            },
+        ],
+        position: Some(
+            59:1-59:13 (1127-1139),
+        ),
+        depth: 4,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Nested",
+                position: Some(
+                    64:6-64:12 (1161-1167),
+                ),
+            },
+        ],
+        position: Some(
+            64:1-64:12 (1156-1167),
+        ),
+        depth: 4,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Task List",
+                position: Some(
+                    70:5-70:14 (1217-1226),
+                ),
+            },
+        ],
+        position: Some(
+            70:1-70:14 (1213-1226),
+        ),
+        depth: 3,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Code",
+                position: Some(
+                    76:5-76:9 (1269-1273),
+                ),
+            },
+        ],
+        position: Some(
+            76:1-76:9 (1265-1273),
+        ),
+        depth: 3,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Inline",
+                position: Some(
+                    78:6-78:12 (1280-1286),
+                ),
+            },
+        ],
+        position: Some(
+            78:1-78:12 (1275-1286),
+        ),
+        depth: 4,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Block",
+                position: Some(
+                    82:6-82:11 (1326-1331),
+                ),
+            },
+        ],
+        position: Some(
+            82:1-82:11 (1321-1331),
+        ),
+        depth: 4,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Quotes",
+                position: Some(
+                    90:5-90:11 (1389-1395),
+                ),
+            },
+        ],
+        position: Some(
+            90:1-90:11 (1385-1395),
+        ),
+        depth: 3,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Links",
+                position: Some(
+                    94:5-94:10 (1429-1434),
+                ),
+            },
+        ],
+        position: Some(
+            94:1-94:10 (1425-1434),
+        ),
+        depth: 3,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Images",
+                position: Some(
+                    98:5-98:11 (1512-1518),
+                ),
+            },
+        ],
+        position: Some(
+            98:1-98:11 (1508-1518),
+        ),
+        depth: 3,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Footnotes",
+                position: Some(
+                    103:5-103:14 (1784-1793),
+                ),
+            },
+        ],
+        position: Some(
+            103:1-103:14 (1780-1793),
+        ),
+        depth: 3,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Tables",
+                position: Some(
+                    116:5-116:11 (2010-2016),
+                ),
+            },
+        ],
+        position: Some(
+            116:1-116:11 (2006-2016),
+        ),
+        depth: 3,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Colors",
+                position: Some(
+                    124:5-124:11 (2123-2129),
+                ),
+            },
+        ],
+        position: Some(
+            124:1-124:11 (2119-2129),
+        ),
+        depth: 3,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Alerts",
+                position: Some(
+                    128:5-128:11 (2190-2196),
+                ),
+            },
+        ],
+        position: Some(
+            128:1-128:11 (2186-2196),
+        ),
+        depth: 3,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "Comments",
+                position: Some(
+                    145:5-145:13 (2589-2597),
+                ),
+            },
+        ],
+        position: Some(
+            145:1-145:13 (2585-2597),
+        ),
+        depth: 3,
+    },
+    Heading {
+        children: [
+            Text {
+                value: "LinkRefernce and Definition",
+                position: Some(
+                    149:5-149:32 (2656-2683),
+                ),
+            },
+        ],
+        position: Some(
+            149:1-149:32 (2652-2683),
+        ),
+        depth: 3,
+    },
+]

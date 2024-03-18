@@ -1,0 +1,28 @@
+---
+source: src/ast.rs
+expression: defs
+---
+[
+    Definition {
+        position: Some(
+            153:1-153:37 (2738-2774),
+        ),
+        url: "https://duckduckgo.com",
+        title: None,
+        identifier: "duckduckgo",
+        label: Some(
+            "duckduckgo",
+        ),
+    },
+    Definition {
+        position: Some(
+            155:1-155:34 (2776-2809),
+        ),
+        url: "https://google.com",
+        title: None,
+        identifier: "google-link",
+        label: Some(
+            "google-link",
+        ),
+    },
+]

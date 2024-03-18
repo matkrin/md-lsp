@@ -1,0 +1,20 @@
+---
+source: src/ast.rs
+expression: next_heading_1
+---
+Some(
+    Heading {
+        children: [
+            Text {
+                value: "Heading 3",
+                position: Some(
+                    33:5-33:14 (884-893),
+                ),
+            },
+        ],
+        position: Some(
+            33:1-33:14 (880-893),
+        ),
+        depth: 3,
+    },
+)

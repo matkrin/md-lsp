@@ -1,0 +1,20 @@
+---
+source: src/ast.rs
+expression: found_heading
+---
+Some(
+    Heading {
+        children: [
+            Text {
+                value: "Heading 1",
+                position: Some(
+                    31:3-31:12 (857-866),
+                ),
+            },
+        ],
+        position: Some(
+            31:1-31:12 (855-866),
+        ),
+        depth: 1,
+    },
+)

@@ -1,0 +1,72 @@
+---
+source: src/ast.rs
+expression: htmls
+---
+[
+    Html {
+        value: "<!--toc:start-->",
+        position: Some(
+            3:1-3:17 (44-60),
+        ),
+    },
+    Html {
+        value: "<!--toc:end-->",
+        position: Some(
+            27:1-27:15 (771-785),
+        ),
+    },
+    Html {
+        value: "<sub>",
+        position: Some(
+            45:2-45:7 (1005-1010),
+        ),
+    },
+    Html {
+        value: "</sub>",
+        position: Some(
+            45:8-45:14 (1011-1017),
+        ),
+    },
+    Html {
+        value: "<sup>",
+        position: Some(
+            49:1-49:6 (1037-1042),
+        ),
+    },
+    Html {
+        value: "</sup>",
+        position: Some(
+            49:7-49:13 (1043-1049),
+        ),
+    },
+    Html {
+        value: "<sup>",
+        position: Some(
+            49:16-49:21 (1052-1057),
+        ),
+    },
+    Html {
+        value: "</sup>",
+        position: Some(
+            49:22-49:28 (1058-1064),
+        ),
+    },
+    Html {
+        value: "<sup>",
+        position: Some(
+            49:31-49:36 (1067-1072),
+        ),
+    },
+    Html {
+        value: "</sup>",
+        position: Some(
+            49:37-49:43 (1073-1079),
+        ),
+    },
+    Html {
+        value: "<!-- This is a comment and will not be rendered -->",
+        position: Some(
+            147:1-147:52 (2599-2650),
+        ),
+    },
+]

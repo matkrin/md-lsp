@@ -1,0 +1,17 @@
+---
+source: src/ast.rs
+expression: found_definition_2
+---
+Some(
+    Definition {
+        position: Some(
+            153:1-153:37 (2738-2774),
+        ),
+        url: "https://duckduckgo.com",
+        title: None,
+        identifier: "duckduckgo",
+        label: Some(
+            "duckduckgo",
+        ),
+    },
+)

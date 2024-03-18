@@ -1,0 +1,24 @@
+---
+source: src/ast.rs
+expression: footnote_refs
+---
+[
+    FootnoteReference {
+        position: Some(
+            105:26-105:30 (1820-1824),
+        ),
+        identifier: "1",
+        label: Some(
+            "1",
+        ),
+    },
+    FootnoteReference {
+        position: Some(
+            107:40-107:48 (1866-1874),
+        ),
+        identifier: "multi",
+        label: Some(
+            "multi",
+        ),
+    },
+]

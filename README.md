@@ -55,70 +55,47 @@ Markdown language server
     - **Wikilink**: shows list of *Headings* in current file / other file in workspace with *Headings*
 
 
-## TODO
+## Installaion
 
-* [x] parse Wikilinks, no support for `[[...|...]]` yet
+After cloning the repository, install with
 
-* [x] hover:
-    - [x] Headings[^heading]
-    - [x] Link[^link]
-    - [x] LinkReference[^link-ref]
-    - [x] FootnoteReference[^footnote-ref]
-    - [x] Wikilinks[^wikilink]
+```bash
+$ cargo install --path .
+```
 
-* [x] go to definition:
-    - [x] Link (for Headings)
-    - [x] LinkReference
-    - [x] FootnoteReference
-    - [x] Wikilinks (as Link)
+## Setup
 
-* [x] find references:
-    - [x] Headings (find references on heading also returns refs to file)
-    - [x] Definition[^definition]
-    - [x] FootnoteDefinition[^footnote-def]
+### Neovim
 
-* [x] diagnostics (messages could be improved)
-    - [x] Links to other document
-    - [x] Links to heading in other document
-    - [x] Links to heading in same file
-    - [x] LinkRefernces
-    - [x] FootnoteRefernces
+With lspconfig:
 
-* [x] document symbols
-* [x] workspace symbols
-* [x] formatting:
-    - [x] entire buffer
-    - [x] ranged
+```lua
+local lspconfig = require("lspconfig")
+local configs = require("lspconfig.configs")
 
-* [x] rename
-    - [x] Heading
-    - [x] LinkReference
-    - [x] Definition
-    - [x] FootnoteReference
-    - [x] FootnoteDefinition
+configs.md_lsp = {
+    default_config = {
+        name = "md-lsp",
+        cmd = { "md-lsp" },
+        filetypes = { "markdown" },
+        root_dir = lspconfig.util.root_pattern('.git'),
+        single_file_support = true,
+    },
+}
 
-* [x] code actions
-    - [x] creating table of contents
-    - [x] updating table of contents
-    - [ ] Tables:
-        - [ ] add row
-        - [ ] delete row, more or less unnecessary
-        - [ ] add column
-        - [ ] delete column
-    - [ ] Build HTML
-    - [ ] On Wikilink: replace with canonical link
- 
-* [x] completion
-    - [x] for LinkReference with list of Definitions (triggered with `[`)
-    - [x] for FootnoteReference with list of FootnoteDefinition (triggered
-        with `[^`)
-    - [x] Links (triggered with `](`)
-    - [x] Wikilinks (triggered with `[[`)
+lspconfig.md_lsp.setup({})
+```
 
-[^heading]: Heading: `# ...`
-[^link]: Link: `[...](...)`
-[^link-ref]: LinkReference: `[...][...]`
-[^footnote-ref]: FootnoteReference: `[^...]`
-[^wikilink]: Wikilink: `[[...]]`
-[^definition]: Definition: `[...]: ...`
-[^footnote-def]: FootnoteDefinition: `[^...]: ...`
+### Helix
+
+In languages.toml:
+
+```toml
+[language-server.md-lsp]
+command = "md-lsp"
+roots = [".git"]
+
+[[language]]
+name = "markdown"
+language-servers = [{ name = "md-lsp" }]
+```

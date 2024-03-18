@@ -23,6 +23,7 @@
     - [Colors](#colors)
     - [Alerts](#alerts)
     - [Comments](#comments)
+    - [LinkRefernce and Definition](#linkrefernce-and-definition)
 <!--toc:end-->
 
 This file just exist for testing autocompletion and linking to it.
@@ -145,3 +146,10 @@ White in hex: `#ffffff`; black as rgb: `rgb(0, 0, 0)`
 
 <!-- This is a comment and will not be rendered -->
 
+### LinkRefernce and Definition
+
+Search it on [duckduckgo] or [google][google-link].
+
+[duckduckgo]: https://duckduckgo.com
+
+[google-link]: https://google.com

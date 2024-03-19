@@ -4,56 +4,59 @@ Markdown language server
 
 ## Features
 
-* Hover:
-    - **Heading**: shows outline of *Headings* with the current one marked 
-    - **Link**: shows preview of destination file / *Heading* in destination file
-    - **LinkReference**: shows its *Definition*
-    - **FootnoteReference**: shows its *Definition*
-    - **Wikilink**: shows preview of destination file / heading in destination file
+- **Hover**:
+  - Heading: shows outline of _Headings_ with the current one marked
+  - Link: shows preview of destination file / _Heading_ in destination file
+  - LinkReference: shows its _Definition_
+  - FootnoteReference: shows its _Definition_
+  - Wikilink: shows preview of destination file / heading in destination file
 
-* Go to definition:
-    - **Link**: go to destination file / *Heading* in destination file
-    - **LinkReference**: go to its *Definition*
-    - **FootnoteReference**: go to its *Definition*
-    - **Wikilink**: go to destination file / *Heading* in destination file
+- **Go to definition**:
+  - Link: go to destination file / _Heading_ in destination file
+  - LinkReference: go to its _Definition_
+  - FootnoteReference: go to its _Definition_
+  - Wikilink: go to destination file / _Heading_ in destination file
 
-* Find references:
-    - **Heading**: find all *Links* that reference this *Heading*
-    - **Definition**: find all *LinkReferences* that reference this *Definition*
-    - **FootnoteDefinition**: find all *FootnoteReferences* that reference this *FootnoteDefinition*
+- **Find references**:
+  - Heading: find all _Links_ that reference this _Heading_
+  - Definition: find all _LinkReferences_ that reference this _Definition_
+  - FootnoteDefinition: find all _FootnoteReferences_ that reference this
+    _FootnoteDefinition_
 
-* Diagnostics:
-    - **Links** to other document
-    - **Links** to *Heading* in other document
-    - **Links** to *Heading* in same file
-    - **LinkReferences**
-    - **FootnoteRefernces**
+- **Diagnostics**:
+  - Links to other document
+  - Links to _Heading_ in other document
+  - Links to _Heading_ in same file
+  - LinkReferences
+  - FootnoteRefernces
 
-* Document symbols: shows all *Headings* in a document
+- **Document symbols**: shows all _Headings_ in a document
 
-* Workspace symbols: shows all *Headings* of the documents in the workspace
+- **Workspace symbols**: shows all _Headings_ of the documents in the workspace
 
-* Formatting:
-    - entire file
-    - only selection
+- **Formatting**:
+  - entire file
+  - only selection
 
-* Rename
-    - **Heading**: updates all *LinkReferences* that reference the *Heading*
-    - **LinkReference**: updates its *Definition*
-    - **Definition**: updates all *LinkReferences* that reference the *Definition*
-    - **FootnoteReference**: update its *FootnoteDefinition*
-    - **FootnoteDefinition**: updates all *FootnoteReferences* that reference the *FootnoteDefinition*
+- **Rename**:
+  - Heading: updates all _LinkReferences_ that reference the _Heading_
+  - LinkReference: updates its _Definition_
+  - Definition: updates all _LinkReferences_ that reference the _Definition_
+  - FootnoteReference: update its _FootnoteDefinition_
+  - FootnoteDefinition: updates all _FootnoteReferences_ that reference the
+    _FootnoteDefinition_
 
-* Code actions:
-    - create table of contents
-    - update table of contents
- 
-* Autocompletion:
-    - **Link**: shows list of *Headings* in current file / other file in workspace with *Headings*
-    - **LinkReference**: shows list of *Definitions*
-    - **FootnoteReference**: shows list of *FootnoteDefinitions*
-    - **Wikilink**: shows list of *Headings* in current file / other file in workspace with *Headings*
+- **Code actions**:
+  - create table of contents
+  - update table of contents
 
+- **Autocompletion**:
+  - Link: shows list of _Headings_ in current file / other file in workspace
+    with _Headings_
+  - LinkReference: shows list of _Definitions_
+  - FootnoteReference: shows list of _FootnoteDefinitions_
+  - Wikilink: shows list of _Headings_ in current file / other file in workspace
+    with _Headings_
 
 ## Installaion
 

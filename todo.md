@@ -1,5 +1,23 @@
 # TODO
 
+* [>] diagnostics (messages could be improved)
+    - [x] Links to other document
+    - [x] Links to heading in other document
+    - [x] Links to heading in same file
+    - [x] LinkReferences without Definition
+    - [x] FootnoteReferences without FootnoteDefinition
+    - [ ] Warning/Info for unused Definition
+    - [ ] Warning/Info for unused FootnoteDefinition
+
+* [>] code actions
+    - [x] creating table of contents
+    - [x] updating table of contents
+    - [ ] Tables:
+        - [ ] add column, left/ right
+        - [ ] delete column
+    - [ ] On Wikilink: replace with canonical link
+    - [ ] Build HTML? maybe
+
 * [x] parse Wikilinks, no support for `[[...|...]]` yet
 
 * [x] hover:
@@ -20,13 +38,6 @@
     - [x] Definition[^definition]
     - [x] FootnoteDefinition[^footnote-def]
 
-* [x] diagnostics (messages could be improved)
-    - [x] Links to other document
-    - [x] Links to heading in other document
-    - [x] Links to heading in same file
-    - [x] LinkRefernces
-    - [x] FootnoteRefernces
-
 * [x] document symbols
 * [x] workspace symbols
 * [x] formatting:
@@ -40,17 +51,6 @@
     - [x] FootnoteReference
     - [x] FootnoteDefinition
 
-* [x] code actions
-    - [x] creating table of contents
-    - [x] updating table of contents
-    - [ ] Tables:
-        - [ ] add row
-        - [ ] delete row, more or less unnecessary
-        - [ ] add column
-        - [ ] delete column
-    - [ ] Build HTML
-    - [ ] On Wikilink: replace with canonical link
- 
 * [x] completion
     - [x] for LinkReference with list of Definitions (triggered with `[`)
     - [x] for FootnoteReference with list of FootnoteDefinition (triggered

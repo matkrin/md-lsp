@@ -58,7 +58,7 @@ Markdown language server
   - Wikilink: shows list of _Headings_ in current file / other file in workspace
     with _Headings_
 
-## Installaion
+## Installation
 
 After cloning the repository, install with
 

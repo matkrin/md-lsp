@@ -148,3 +148,19 @@ pub fn path_from_root(from: &Path, to: &Path) -> Option<String> {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_path_from_root() {
+        let path1 = PathBuf::from("/foo/bar");
+        let path2 = PathBuf::from("/foo/bar/baz");
+        let path3 = PathBuf::from("/other/bar/baz");
+        let from_root1 = path_from_root(&path1, &path2);
+        assert_eq!(from_root1, Some("/baz".to_string()));
+        let from_root2 = path_from_root(&path1, &path3);
+        assert_eq!(from_root2, None);
+    }
+}

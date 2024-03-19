@@ -1,6 +1,8 @@
 # md-lsp
 
-Markdown language server
+Markdown language server with support for [github flavored markdown][gfm].
+
+[gfm]: https://github.github.com/gfm/
 
 ## Features
 

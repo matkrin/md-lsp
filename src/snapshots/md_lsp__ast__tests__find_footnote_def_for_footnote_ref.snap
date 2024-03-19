@@ -1,0 +1,30 @@
+---
+source: src/ast.rs
+expression: found_footnote_ref
+---
+Some(
+    FootnoteDefinition {
+        children: [
+            Paragraph {
+                children: [
+                    Text {
+                        value: "My reference.",
+                        position: Some(
+                            110:7-110:20 (1884-1897),
+                        ),
+                    },
+                ],
+                position: Some(
+                    110:7-110:20 (1884-1897),
+                ),
+            },
+        ],
+        position: Some(
+            110:1-111:1 (1878-1898),
+        ),
+        identifier: "1",
+        label: Some(
+            "1",
+        ),
+    },
+)

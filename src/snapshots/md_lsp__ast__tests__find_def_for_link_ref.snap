@@ -1,0 +1,17 @@
+---
+source: src/ast.rs
+expression: found_definition
+---
+Some(
+    Definition {
+        position: Some(
+            155:1-155:34 (2776-2809),
+        ),
+        url: "https://google.com",
+        title: None,
+        identifier: "google-link",
+        label: Some(
+            "google-link",
+        ),
+    },
+)

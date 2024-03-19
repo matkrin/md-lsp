@@ -335,7 +335,7 @@ pub fn find_footnote_def_for_footnote_ref<'a>(
 mod tests {
     use super::*;
 
-    use markdown::mdast::Node;
+    use markdown::mdast::{Node, ReferenceKind};
     use markdown::unist::{Point, Position};
 
     use crate::links::parse_wiki_links;
@@ -538,7 +538,66 @@ mod tests {
     }
 
     #[test]
-    fn test_find_def_for_link_ref() {}
+    fn test_find_def_for_link_ref() {
+        let ast = ast();
+        let line_number = 151;
+        let link_ref = LinkReference {
+            children: vec![Node::Text(Text {
+                value: "google".to_string(),
+                position: Some(Position {
+                    start: Point {
+                        line: line_number,
+                        column: 31,
+                        offset: 2715,
+                    },
+                    end: Point {
+                        line: line_number,
+                        column: 37,
+                        offset: 2721,
+                    },
+                }),
+            })],
+            position: Some(Position {
+                start: Point {
+                    line: line_number,
+                    column: 30,
+                    offset: 2714,
+                },
+                end: Point {
+                    line: line_number,
+                    column: 51,
+                    offset: 2735,
+                },
+            }),
+            reference_kind: ReferenceKind::Full,
+            identifier: "google-link".to_string(),
+            label: Some("google-link".to_string()),
+        };
+        let found_definition = find_def_for_link_ref(&ast, &link_ref);
+        insta::assert_debug_snapshot!(found_definition);
+    }
+
     #[test]
-    fn test_find_footnote_def_for_footnote_ref() {}
+    fn test_find_footnote_def_for_footnote_ref() {
+        let ast = ast();
+        let line_number = 105;
+        let footnote_ref = FootnoteReference {
+            position: Some(Position {
+                start: Point {
+                    line: line_number,
+                    column: 26,
+                    offset: 1820,
+                },
+                end: Point {
+                    line: line_number,
+                    column: 30,
+                    offset: 1824,
+                },
+            }),
+            identifier: "1".to_string(),
+            label: Some("1".to_string()),
+        };
+        let found_footnote_ref = find_footnote_def_for_footnote_ref(&ast, &footnote_ref);
+        insta::assert_debug_snapshot!(found_footnote_ref);
+    }
 }

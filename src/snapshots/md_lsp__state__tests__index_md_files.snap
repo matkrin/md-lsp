@@ -1,0 +1,13 @@
+---
+source: src/state.rs
+expression: file_names
+---
+[
+    "/home/matthias/github/md-lsp/README.md",
+    "/home/matthias/github/md-lsp/test.md",
+    "/home/matthias/github/md-lsp/testdata/test%20file%20c.md",
+    "/home/matthias/github/md-lsp/testdata/test-file-b.md",
+    "/home/matthias/github/md-lsp/testdata/test_file_a.md",
+    "/home/matthias/github/md-lsp/testdata/testfiled.md",
+    "/home/matthias/github/md-lsp/todo.md",
+]

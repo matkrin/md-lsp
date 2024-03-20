@@ -153,6 +153,24 @@ pub fn path_from_root(from: &Path, to: &Path) -> Option<String> {
 mod tests {
     use super::*;
 
+    fn create_workspacefolder() -> WorkspaceFolder {
+        let workspacefolder_dir = std::env::current_dir().expect("Current directory should exist");
+        let s = format!("file:///{}", workspacefolder_dir.to_str().unwrap());
+        let wsf_url = Url::parse(&s).expect("Parsing URL failed");
+        let wsf_name = workspacefolder_dir.file_name().unwrap().to_str().unwrap();
+        WorkspaceFolder {
+            uri: wsf_url,
+            name: wsf_name.into(),
+        }
+    }
+
+    fn init_state() -> State {
+        let workspace_folder = create_workspacefolder();
+        let mut state = State::new();
+        state.set_workspace_folder(workspace_folder);
+        state
+    }
+
     #[test]
     fn test_path_from_root() {
         let path1 = PathBuf::from("/foo/bar");
@@ -162,5 +180,16 @@ mod tests {
         assert_eq!(from_root1, Some("/baz".to_string()));
         let from_root2 = path_from_root(&path1, &path3);
         assert_eq!(from_root2, None);
+    }
+
+    #[test]
+    fn test_index_md_files() {
+        let workspace_folder = create_workspacefolder();
+        let mut state = init_state();
+        state.index_md_files(&[workspace_folder]);
+        assert!(!state.md_files.is_empty());
+        let mut file_names: Vec<_> = state.md_files.keys().map(|url| url.path()).collect();
+        file_names.sort();
+        insta::assert_debug_snapshot!(file_names);
     }
 }

@@ -62,10 +62,10 @@ Markdown language server with support for [github flavored markdown][gfm].
 
 ## Installation
 
-After cloning the repository, install with
+Currently, you need cargo for the installation:
 
 ```bash
-$ cargo install --path .
+$ cargo install --git https://github.com/matkrin/md-lsp.git
 ```
 
 ## Setup

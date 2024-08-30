@@ -1,7 +1,8 @@
-use std::fs::File;
+use std::{fs::OpenOptions, path::PathBuf, time::SystemTime};
 
 use anyhow::Result;
 use clap::{ArgAction, Parser};
+use log::LevelFilter;
 use lsp_server::Connection;
 use lsp_types::{
     CodeActionProviderCapability, HoverProviderCapability, InitializeParams, OneOf, RenameOptions,
@@ -24,19 +25,8 @@ struct Args {
 }
 
 fn main() -> Result<()> {
-    // Note that  we must have our logging only write out to stderr.
-
-    let mut log_file_path = std::env::temp_dir();
-    log_file_path.push("md-lsp.log");
-    let log_file = File::options()
-        .create(true)
-        .append(true)
-        .open(&log_file_path)
-        .expect("Couldn't open log file");
-    structured_logger::Builder::with_level("TRACE")
-        .with_default_writer(structured_logger::json::new_writer(log_file))
-        .init();
-    log::info!("starting generic LSP server");
+    let args = Args::parse();
+    init_logging(&args);
 
     // Create the transport. Includes the stdio (stdin and stdout) versions but this could
     // also be implemented to use sockets or HTTP.
@@ -94,6 +84,49 @@ fn main() -> Result<()> {
     // Shut down gracefully.
     log::trace!("shutting down server");
     Ok(())
+}
+
+// Only log to stderr
+fn init_logging(args: &Args) {
+    let log_level = if !args.quiet {
+        match args.verbosity {
+            0 => LevelFilter::Error,
+            1 => LevelFilter::Warn,
+            2 => LevelFilter::Info,
+            3 => LevelFilter::Debug,
+            _ => LevelFilter::Trace,
+        }
+    } else {
+        LevelFilter::Off
+    };
+
+    let logger = fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "[{} {} {}]: {}",
+                humantime::format_rfc3339_seconds(SystemTime::now()),
+                record.level(),
+                record.target(),
+                message
+            ))
+        })
+        .level(log_level)
+        .chain(std::io::stderr());
+
+    let logger = match &args.logfile {
+        Some(log_file) => logger.chain(
+            OpenOptions::new()
+                //.write(true)
+                .create(true)
+                .append(true)
+                //.truncate(true)
+                .open(log_file)
+                .expect("Failed to open the log file"),
+        ),
+        None => logger,
+    };
+
+    logger.apply().expect("Failed to initialize logging");
 }
 
 fn main_loop(connection: Connection, params: serde_json::Value) -> Result<()> {

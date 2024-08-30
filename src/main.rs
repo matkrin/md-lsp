@@ -1,12 +1,27 @@
 use std::fs::File;
 
 use anyhow::Result;
+use clap::{ArgAction, Parser};
 use lsp_server::Connection;
 use lsp_types::{
     CodeActionProviderCapability, HoverProviderCapability, InitializeParams, OneOf, RenameOptions,
     ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind, WorkDoneProgressOptions,
 };
 use md_lsp::{server::Server, state::State};
+
+#[derive(Parser, Debug)]
+#[command(version, about)]
+struct Args {
+    /// Log to FILE instead of stderr
+    #[clap(short, long, name = "FILE")]
+    logfile: Option<PathBuf>,
+    /// Increase log message verbosity
+    #[clap(short, long, action = ArgAction::Count)]
+    verbosity: u8,
+    /// No message output to stderr
+    #[clap(short, long)]
+    quiet: bool,
+}
 
 fn main() -> Result<()> {
     // Note that  we must have our logging only write out to stderr.

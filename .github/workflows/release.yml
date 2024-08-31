@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Triggers on version tags like v1.0.0
+      - 'v*.*.*a*'  # Triggers on tags like v0.0.1a1
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        target: [x86_64-unknown-linux-gnu, x86_64-pc-windows-msvc, x86_64-apple-darwin]
+
+    env:
+      RELEASE_FOLDER: "${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.target }}"
+      BINARY_NAME: "${{ github.event.repository.name }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare release folder
+        run: |
+          mkdir -p "${{ env.RELEASE_FOLDER }}"
+          cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} "${{ env.RELEASE_FOLDER }}/"
+          cp LICENSE README.md "${{ env.RELEASE_FOLDER }}/"
+
+      - name: Compress folder
+        run: |
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            7z a "${{ env.RELEASE_FOLDER }}" "${{ env.RELEASE_FOLDER }}.zip"
+          else
+            tar -czvf "${{ env.RELEASE_FOLDER }}.tar.gz" "${{ env.RELEASE_FOLDER }}"
+          fi
+
+      - name: Create GitHub Release
+        run: |
+          gh release create ${{ github.ref_name }} --draft --verify-tag --title "Release ${{ github.ref_name }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Release Assets
+        run: |
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            gh release upload ${{ github.ref_name }} ${{ env.RELEASE_FOLDER }}.zip
+          else
+            gh release upload ${{ github.ref_name }} ${{ env.RELEASE_FOLDER }}.tar.gz
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

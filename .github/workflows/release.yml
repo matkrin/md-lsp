@@ -65,7 +65,8 @@ jobs:
         run: |
           mkdir -p "${{ env.RELEASE_FOLDER }}"
           cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} "${{ env.RELEASE_FOLDER }}/"
-          cp LICENSE README.md "${{ env.RELEASE_FOLDER }}/"
+          cp LICENSE "${{ env.RELEASE_FOLDER }}/"
+          cp README.md "${{ env.RELEASE_FOLDER }}/"
 
       - name: Compress release folder
         run: |

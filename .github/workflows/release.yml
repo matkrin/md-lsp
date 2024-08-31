@@ -62,6 +62,7 @@ jobs:
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Prepare release folder
+        shell: bash
         run: |
           mkdir -p "${{ env.RELEASE_FOLDER }}"
           cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} "${{ env.RELEASE_FOLDER }}/"
@@ -69,6 +70,7 @@ jobs:
           cp README.md "${{ env.RELEASE_FOLDER }}/"
 
       - name: Compress release folder
+        shell: bash
         run: |
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             7z a "${{ env.RELEASE_FOLDER }}" "${{ env.RELEASE_FOLDER }}.zip"
@@ -77,6 +79,7 @@ jobs:
           fi
 
       - name: Upload release assets
+        shell: bash
         run: |
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             gh release upload ${{ github.ref_name }} ${{ env.RELEASE_FOLDER }}.zip

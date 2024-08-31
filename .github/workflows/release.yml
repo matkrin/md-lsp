@@ -73,7 +73,7 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            7z a "${{ env.RELEASE_FOLDER }}" "${{ env.RELEASE_FOLDER }}.zip"
+            7z a "${{ env.RELEASE_FOLDER }}.zip" "${{ env.RELEASE_FOLDER }}"
           else
             tar -czvf "${{ env.RELEASE_FOLDER }}.tar.gz" "${{ env.RELEASE_FOLDER }}"
           fi

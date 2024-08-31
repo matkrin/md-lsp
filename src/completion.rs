@@ -1,4 +1,4 @@
-use std::{os::unix::ffi::OsStrExt, path::{Path, PathBuf}};
+use std::path::{Path, PathBuf};
 
 use lsp_types::{
     CompletionItem, CompletionItemKind, CompletionList, CompletionParams, Position, Range, Url,
@@ -48,7 +48,7 @@ fn link_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
                 let heading_text = get_heading_text(heading)?;
                 let range = link_detail_range(&md_file.ast, heading)?;
                 let detail = state.buffer_range_for_uri(url, &range)?;
-                let label = if relative_path.as_bytes() == req_filename.as_bytes() {
+                let label = if Some(relative_path.as_str()) == req_filename.to_str() {
                     format!( "#{}",  heading_text.to_lowercase().replace(' ', "-"))
                 } else {
                     format!( "/{}#{}", url_encode(&relative_path), heading_text.to_lowercase().replace(' ', "-"))
@@ -84,7 +84,7 @@ fn wikilink_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
                 let heading_text = get_heading_text(heading)?;
                 let range = link_detail_range(&md_file.ast, heading)?;
                 let detail = state.buffer_range_for_uri(url, &range)?;
-                let label = if relative_path.as_bytes() == req_filename.as_bytes() {
+                let label = if Some(relative_path.as_str()) == req_filename.to_str() {
                     format!("#{}", heading_text)
                 } else {
                     let path = relative_path.split_once('.')?.0;

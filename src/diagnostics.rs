@@ -6,10 +6,7 @@ use markdown::mdast::{Link, Node};
 use regex::Regex;
 
 use crate::{
-    ast::find_heading_for_link,
-    definition::range_from_position,
-    links::{resolve_link, ResolvedLink},
-    state::State,
+    ast::TraverseNode, definition::range_from_position, links::{resolve_link, ResolvedLink}, state::State
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -98,7 +95,7 @@ fn handle_broken_link(state: &State, link: &Link) -> Vec<BrokenLink> {
 fn handle_broken_heading_link(link: &Link, req_uri: &Url, state: &State) -> Option<BrokenLink> {
     let found = state
         .ast_for_uri(req_uri)
-        .and_then(|ast| find_heading_for_link(ast, link));
+        .and_then(|ast| ast.find_heading_for_link( link));
     if let (Some(pos), None) = (&link.position, found) {
         Some(BrokenLink {
             range: range_from_position(pos),

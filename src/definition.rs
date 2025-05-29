@@ -7,10 +7,7 @@ use markdown::{
 };
 
 use crate::{
-    ast::{
-        find_definition_for_identifier, find_foot_definition_for_identifier,
-        find_linkable_for_position,
-    },
+    ast::{find_definition_for_identifier, find_foot_definition_for_identifier, TraverseNode},
     links::{resolve_link, ResolvedLink},
     state::State,
 };
@@ -20,7 +17,7 @@ pub fn definition(params: &GotoDefinitionParams, state: &State) -> Option<GotoDe
     let req_uri = &position_params.text_document.uri;
     let LspPosition { line, character } = position_params.position;
     let req_ast = state.ast_for_uri(req_uri).unwrap();
-    let node = find_linkable_for_position(req_ast, line, character);
+    let node = req_ast.find_linkable_for_position(line, character);
 
     let location = match node? {
         Node::Link(link) => handle_link_to_heading(link, state),

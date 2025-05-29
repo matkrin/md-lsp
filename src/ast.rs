@@ -20,79 +20,129 @@ macro_rules! traverse_ast {
     };
 }
 
-pub fn find_linkable_for_position(node: &Node, line: u32, character: u32) -> Option<&Node> {
-    // log::info!("NODE: {:?}", node);
-    match node {
-        Node::Heading(Heading { position, .. })
-        | Node::Link(Link { position, .. })
-        | Node::LinkReference(LinkReference { position, .. })
-        | Node::FootnoteReference(FootnoteReference { position, .. }) => {
-            if let Some(pos) = position {
-                if (line + 1) as usize >= pos.start.line
-                    && (line + 1) as usize <= pos.end.line
-                    && (character + 1) as usize >= pos.start.column
-                    && (character + 1) as usize <= pos.end.column
-                {
-                    return Some(node);
+pub struct AstIterator<'a> {
+    stack: Vec<&'a Node>,
+}
+
+impl<'a> AstIterator<'a> {
+    pub fn new(root: &'a Node) -> Self {
+        Self { stack: vec![root] }
+    }
+}
+
+impl<'a> Iterator for AstIterator<'a> {
+    type Item = &'a Node;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(node) = self.stack.pop() {
+            if let Some(children) = node.children() {
+                self.stack.extend(children.iter().rev());
+            }
+            Some(node)
+        } else {
+            None
+        }
+    }
+}
+
+pub trait TraverseNode {
+    fn find_linkable_for_position(&self, line: u32, character: u32) -> Option<&Node>;
+    fn find_definition_for_position(&self, line: u32, character: u32) -> Option<&Node>;
+    fn find_heading_for_link(&self, link: &Link) -> Option<&Heading>;
+    fn find_heading_for_link_identifier(&self, link: &str) -> Option<&Heading>;
+    fn find_definition_for_identifier(&self, identifier: &str) -> Option<&Definition>;
+}
+
+impl TraverseNode for Node {
+    /// Finds a linkable node at the given position
+    fn find_linkable_for_position(&self, line: u32, character: u32) -> Option<&Node> {
+        AstIterator::new(self).find(|node| match node {
+            Node::Heading(Heading { position, .. })
+            | Node::Link(Link { position, .. })
+            | Node::LinkReference(LinkReference { position, .. })
+            | Node::FootnoteReference(FootnoteReference { position, .. }) => {
+                if let Some(pos) = position {
+                    (line + 1) as usize >= pos.start.line
+                        && (line + 1) as usize <= pos.end.line
+                        && (character + 1) as usize >= pos.start.column
+                        && (character + 1) as usize <= pos.end.column
+                } else {
+                    false
                 }
             }
-        }
-        _ => {}
-    };
-
-    traverse_ast!(node, find_linkable_for_position, line, character)
-}
-
-pub fn find_definition_for_position(node: &Node, line: u32, character: u32) -> Option<&Node> {
-    match node {
-        Node::Heading(Heading { position, .. })
-        | Node::Definition(Definition { position, .. })
-        | Node::FootnoteDefinition(FootnoteDefinition { position, .. }) => {
-            if let Some(pos) = position {
-                if (line + 1) as usize >= pos.start.line
-                    && (line + 1) as usize <= pos.end.line
-                    && (character + 1) as usize >= pos.start.column
-                // && (character + 1) as usize <= pos.end.column
-                {
-                    return Some(node);
+            _ => false,
+        })
+    }
+    fn find_definition_for_position(&self, line: u32, character: u32) -> Option<&Node> {
+        AstIterator::new(self).find(|node| match node {
+            Node::Heading(Heading { position, .. })
+            | Node::Definition(Definition { position, .. })
+            | Node::FootnoteDefinition(FootnoteDefinition { position, .. }) => {
+                if let Some(pos) = position {
+                    (line + 1) as usize >= pos.start.line
+                        && (line + 1) as usize <= pos.end.line
+                        && (character + 1) as usize >= pos.start.column
+                    // && (character + 1) as usize <= pos.end.column
+                } else {
+                    false
                 }
             }
-        }
-        _ => {}
-    };
+            _ => false,
+        })
+    }
 
-    traverse_ast!(node, find_definition_for_position, line, character)
-}
+    fn find_heading_for_link(&self, link: &Link) -> Option<&Heading> {
+        let target = link.url.replace('#', "");
+        let normalized_target = target.to_lowercase().replace(' ', "-");
 
-pub fn find_heading_for_link<'a>(node: &'a Node, link: &Link) -> Option<&'a Heading> {
-    if let Node::Heading(heading) = node {
-        if let Some(Node::Text(Text { value, .. })) = heading.children.first() {
-            if value == &link.url.replace('#', "")
-                || value.to_lowercase().replace(' ', "-") == link.url.replace('#', "")
-            {
-                return Some(heading);
+        AstIterator::new(self).find_map(|node| {
+            let Node::Heading(heading) = node else {
+                return None;
+            };
+            let Node::Text(Text { value, .. }) = heading.children.first()? else {
+                return None;
+            };
+
+            if value == &target || value.to_lowercase().replace(' ', "-") == normalized_target {
+                Some(heading)
+            } else {
+                None
             }
-        }
-    };
+        })
+    }
 
-    traverse_ast!(node, find_heading_for_link, link)
-}
+    fn find_heading_for_link_identifier(&self, link_identifier: &str) -> Option<&Heading> {
+        let target = link_identifier.replace('#', "");
+        let normalized_target = target.to_lowercase().replace(' ', "-");
 
-pub fn find_heading_for_link_identifier<'a>(
-    node: &'a Node,
-    link_identifier: &str,
-) -> Option<&'a Heading> {
-    if let Node::Heading(heading) = node {
-        if let Some(Node::Text(Text { value, .. })) = heading.children.first() {
-            if value == &link_identifier.replace('#', "")
-                || value.to_lowercase().replace(' ', "-") == link_identifier.replace('#', "")
-            {
-                return Some(heading);
+        AstIterator::new(self).find_map(|node| {
+            let Node::Heading(heading) = node else {
+                return None;
+            };
+            let Node::Text(Text { value, .. }) = heading.children.first()? else {
+                return None;
+            };
+
+            if value == &target || value.to_lowercase().replace(' ', "-") == normalized_target {
+                Some(heading)
+            } else {
+                None
             }
-        }
-    };
-
-    traverse_ast!(node, find_heading_for_link_identifier, link_identifier)
+        })
+    }
+    fn find_definition_for_identifier(&self, identifier: &str) -> Option<&Definition> {
+        AstIterator::new(self).find_map(|node| {
+            if let Node::Definition(def) = node {
+                if def.identifier == identifier {
+                    Some(def)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+    }
 }
 
 pub fn find_definition_for_identifier<'a>(
@@ -333,6 +383,7 @@ pub fn find_footnote_def_for_footnote_ref<'a>(
 
 #[cfg(test)]
 mod tests {
+    use super::TraverseNode;
     use super::*;
 
     use markdown::mdast::{Node, ReferenceKind};
@@ -353,8 +404,10 @@ mod tests {
     fn test_find_linkable_for_position() {
         let ast = ast();
         let line_number = 31;
-        let linkable = find_linkable_for_position(&ast, line_number, 0);
-        let linkable_2 = find_linkable_for_position(&ast, line_number, 11);
+        // let linkable = find_linkable_for_position(&ast, line_number, 0);
+        // let linkable_2 = find_linkable_for_position(&ast, line_number, 11);
+        let linkable = ast.find_linkable_for_position(line_number, 0);
+        let linkable_2 = ast.find_linkable_for_position(line_number, 11);
         insta::assert_debug_snapshot!(linkable);
         insta::assert_debug_snapshot!(linkable_2);
     }
@@ -363,8 +416,8 @@ mod tests {
     fn test_find_definition_for_position() {
         let ast = ast();
         let line_number = 31;
-        let linkable = find_definition_for_position(&ast, line_number, 0);
-        let linkable_2 = find_definition_for_position(&ast, line_number, 11);
+        let linkable = ast.find_definition_for_position(line_number, 0);
+        let linkable_2 = ast.find_definition_for_position(line_number, 11);
         insta::assert_debug_snapshot!(linkable);
         insta::assert_debug_snapshot!(linkable_2);
     }
@@ -404,14 +457,14 @@ mod tests {
             url: "#heading-1".to_string(),
             title: None,
         };
-        let found_heading = find_heading_for_link(&ast, &link);
+        let found_heading = ast.find_heading_for_link(&link);
         insta::assert_debug_snapshot!(found_heading);
     }
 
     #[test]
     fn test_find_heading_for_link_identifier() {
         let ast = ast();
-        let found_heading = find_heading_for_link_identifier(&ast, "#heading-1");
+        let found_heading = ast.find_heading_for_link_identifier("#heading-1");
         insta::assert_debug_snapshot!(found_heading);
     }
 

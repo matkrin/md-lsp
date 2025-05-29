@@ -6,7 +6,7 @@ use markdown::mdast::{FootnoteReference, Heading, Link, LinkReference, Node};
 use crate::{
     ast::{
         find_def_for_link_ref, find_footnote_def_for_footnote_ref, find_headings,
-        find_linkable_for_position, find_next_heading, get_heading_text,
+        find_next_heading, get_heading_text, TraverseNode,
     },
     definition::range_from_position,
     links::{resolve_link, ResolvedLink},
@@ -20,7 +20,7 @@ pub fn hover(params: &HoverParams, state: &State) -> Option<Hover> {
     let Position { line, character } = position_params.position;
 
     let req_ast = state.ast_for_uri(req_uri)?;
-    let node = find_linkable_for_position(req_ast, line, character)?;
+    let node = req_ast.find_linkable_for_position(line, character)?;
     log::info!("HOVERRRRRR NODE : {:#?}", node);
 
     let message = match node {

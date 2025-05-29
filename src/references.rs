@@ -1,7 +1,7 @@
 use lsp_types::{Location, Position as LspPosition, ReferenceParams, Url};
 use markdown::mdast::{Definition, FootnoteDefinition, Heading, Node};
 
-use crate::ast::{find_definition_for_position, find_link_references_for_identifier, find_links};
+use crate::ast::{find_link_references_for_identifier, find_links, TraverseNode};
 use crate::links::{resolve_link, ResolvedLink};
 use crate::{
     ast::find_footnote_references_for_identifier, definition::range_from_position, state::State,
@@ -13,7 +13,7 @@ pub fn references(params: &ReferenceParams, state: &State) -> Option<Vec<Locatio
     let LspPosition { line, character } = text_document_params.position;
 
     let req_ast = state.ast_for_uri(req_uri).unwrap();
-    let node = find_definition_for_position(req_ast, line, character);
+    let node = req_ast.find_definition_for_position(line, character);
 
     match node {
         Some(n) => match n {

@@ -6,7 +6,7 @@ use markdown::{
 use regex::Regex;
 
 use crate::{
-    ast::{find_heading_for_link, find_heading_for_link_identifier, get_heading_text},
+    ast::{get_heading_text, TraverseNode},
     state::State,
 };
 
@@ -125,7 +125,7 @@ pub fn resolve_link<'a>(link: &'a Link, state: &'a State) -> ResolvedLink<'a> {
     match link.url.split_once('#') {
         Some(("", _)) => {
             for (url, md_file) in state.md_files.iter() {
-                if let Some(heading) = find_heading_for_link(&md_file.ast, link) {
+                if let Some(heading) = &md_file.ast.find_heading_for_link(link) {
                     return ResolvedLink::InternalHeading {
                         link: md_link,
                         file_uri: url,
@@ -138,9 +138,7 @@ pub fn resolve_link<'a>(link: &'a Link, state: &'a State) -> ResolvedLink<'a> {
         // link with referece to heading `...#...`
         Some((file_ref_text, heading_ref_text)) => {
             let file = match md_link {
-                MdLink::NormalLink(_) => {
-                    url_decode(file_ref_text)
-                },
+                MdLink::NormalLink(_) => url_decode(file_ref_text),
                 MdLink::WikiLink(_) => {
                     // allow both for wikilinks: with suffix and without
                     if file_ref_text.ends_with(".md") {
@@ -148,14 +146,14 @@ pub fn resolve_link<'a>(link: &'a Link, state: &'a State) -> ResolvedLink<'a> {
                     } else {
                         format!("{}.md", file_ref_text)
                     }
-                },
+                }
             };
 
             for (url, relative_path) in state.get_file_list() {
                 if relative_path == file {
                     // as we get url from state it must be in there
                     let ast = state.ast_for_uri(url).unwrap();
-                    if let Some(heading) = find_heading_for_link_identifier(ast, heading_ref_text) {
+                    if let Some(heading) = ast.find_heading_for_link_identifier(heading_ref_text) {
                         return ResolvedLink::ExternalHeading {
                             link: md_link,
                             file_uri: url,

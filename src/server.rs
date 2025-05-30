@@ -124,7 +124,7 @@ impl Server {
     /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_didChange
     fn handle_did_change(&self, not: lsp_server::Notification, state: &mut State) -> Result<()> {
         let params: DidChangeTextDocumentParams = serde_json::from_value(not.params)?;
-        let change_event = params.content_changes.into_iter().last().unwrap();
+        let change_event = params.content_changes.into_iter().next_back().unwrap();
         let uri = params.text_document.uri;
         state.set_buffer(&uri, change_event.text);
         self.handle_diagnostic(&uri, state)?;

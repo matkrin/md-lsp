@@ -72,6 +72,19 @@ $ cargo install --git https://github.com/matkrin/md-lsp.git
 
 ### Neovim
 
+With Neovim version 0.11+, you can use md-lsp without pluings:
+
+```lua
+vim.lsp.config.md_lsp = {
+    cmd = { "md-lsp"},
+    filetypes = { "markdown" },
+    root_markers = { ".git" },
+    single_file_support = true,
+}
+
+vim.lsp.enable("md_lsp")
+```
+
 With lspconfig:
 
 ```lua
@@ -83,7 +96,7 @@ configs.md_lsp = {
         name = "md-lsp",
         cmd = { "md-lsp" },
         filetypes = { "markdown" },
-        root_dir = lspconfig.util.root_pattern('.git'),
+        root_dir = lspconfig.util.root_pattern(".git"),
         single_file_support = true,
     },
 }

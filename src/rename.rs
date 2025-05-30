@@ -4,19 +4,11 @@ use lsp_types::{
     Position, PrepareRenameResponse, Range, RenameParams, TextDocumentPositionParams, TextEdit, Url,
 };
 use markdown::mdast::{
-    Definition, FootnoteDefinition, FootnoteReference, Heading, LinkReference, Node, ReferenceKind, Text
+    Definition, FootnoteDefinition, FootnoteReference, Heading, LinkReference, Node, ReferenceKind,
+    Text,
 };
 
-use crate::{
-    ast::{
-        find_definition_for_identifier, find_foot_definition_for_identifier,
-        find_footnote_references_for_identifier, find_link_references_for_identifier,
-    },
-    links::ResolvedLink,
-    references::get_heading_refs,
-    state::State,
-    traverse_ast,
-};
+use crate::{ast::TraverseNode, links::ResolvedLink, references::get_heading_refs, state::State};
 
 pub fn prepare_rename(
     params: &TextDocumentPositionParams,
@@ -137,7 +129,7 @@ fn link_ref_rename_range(link_ref: &LinkReference) -> Option<Range> {
     link_ref.position.as_ref().map(|link_ref_pos| {
         let start_line = link_ref_pos.start.line - 1;
         let start_char = match kind {
-            ReferenceKind::Full =>  link_ref_pos.start.column + text.value.len() + 2,
+            ReferenceKind::Full => link_ref_pos.start.column + text.value.len() + 2,
             _ => link_ref_pos.start.column,
         };
         let end_line = link_ref_pos.end.line - 1;
@@ -177,38 +169,66 @@ fn footnote_def_rename_range(footnote_def: &FootnoteDefinition) -> Option<Range>
 }
 
 fn find_renameable_for_position<'a>(node: &'a Node, req_pos: &Position) -> Option<&'a Node> {
-    match node {
+    node.ast_iter().find(|node| match node {
         Node::Heading(Heading { position, .. })
         | Node::LinkReference(LinkReference { position, .. })
         | Node::Definition(Definition { position, .. })
         | Node::FootnoteReference(FootnoteReference { position, .. }) => {
             if let Some(pos) = position {
-                if (req_pos.line + 1) as usize >= pos.start.line
+                (req_pos.line + 1) as usize >= pos.start.line
                     && (req_pos.line + 1) as usize <= pos.end.line
                     && (req_pos.character + 1) as usize >= pos.start.column
                     && (req_pos.character + 1) as usize <= pos.end.column
-                {
-                    return Some(node);
-                }
-            };
+            } else {
+                false
+            }
         }
         Node::FootnoteDefinition(FootnoteDefinition {
             position: Some(pos),
             ..
         }) => {
-            if (req_pos.line + 1) as usize >= pos.start.line
+            (req_pos.line + 1) as usize >= pos.start.line
                 && (req_pos.line + 1) as usize <= pos.end.line
                 && (req_pos.character + 1) as usize >= pos.start.column
             //&& (req_pos.character + 1) as usize <= pos.end.column
-            {
-                return Some(node);
-            }
         }
-        _ => {}
-    }
-
-    traverse_ast!(node, find_renameable_for_position, req_pos)
+        _ => false,
+    })
 }
+
+// fn find_renameable_for_position<'a>(node: &'a Node, req_pos: &Position) -> Option<&'a Node> {
+//     match node {
+//         Node::Heading(Heading { position, .. })
+//         | Node::LinkReference(LinkReference { position, .. })
+//         | Node::Definition(Definition { position, .. })
+//         | Node::FootnoteReference(FootnoteReference { position, .. }) => {
+//             if let Some(pos) = position {
+//                 if (req_pos.line + 1) as usize >= pos.start.line
+//                     && (req_pos.line + 1) as usize <= pos.end.line
+//                     && (req_pos.character + 1) as usize >= pos.start.column
+//                     && (req_pos.character + 1) as usize <= pos.end.column
+//                 {
+//                     return Some(node);
+//                 }
+//             };
+//         }
+//         Node::FootnoteDefinition(FootnoteDefinition {
+//             position: Some(pos),
+//             ..
+//         }) => {
+//             if (req_pos.line + 1) as usize >= pos.start.line
+//                 && (req_pos.line + 1) as usize <= pos.end.line
+//                 && (req_pos.character + 1) as usize >= pos.start.column
+//             //&& (req_pos.character + 1) as usize <= pos.end.column
+//             {
+//                 return Some(node);
+//             }
+//         }
+//         _ => {}
+//     }
+//
+//     traverse_ast!(node, find_renameable_for_position, req_pos)
+// }
 
 pub fn get_text_child(children: &Vec<Node>) -> Option<&Text> {
     for child in children {
@@ -275,7 +295,7 @@ fn rename_definition(
 ) -> HashMap<Url, Vec<TextEdit>> {
     let mut definition_changes = HashMap::new();
     if let Some(ast) = state.ast_for_uri(req_uri) {
-        if let Some(definition) = find_definition_for_identifier(ast, &link_ref.identifier) {
+        if let Some(definition) = ast.find_definition_for_identifier(&link_ref.identifier) {
             if let Some(range) = definition_rename_range(definition) {
                 let text_edit = TextEdit {
                     range,
@@ -298,7 +318,7 @@ fn rename_link_refs(
     state: &State,
 ) -> Option<HashMap<Url, Vec<TextEdit>>> {
     let ast = state.ast_for_uri(req_uri)?;
-    let link_refs = find_link_references_for_identifier(ast, identifier);
+    let link_refs = ast.find_link_references_for_identifier(identifier);
     let link_refs = link_refs.into_iter().fold(
         HashMap::new(),
         |mut acc: HashMap<Url, Vec<TextEdit>>, link_ref| {
@@ -324,7 +344,7 @@ fn rename_footnote_def(
     let mut footnote_def_changes = HashMap::new();
     if let Some(ast) = state.ast_for_uri(req_uri) {
         if let Some(footnote_def) =
-            find_foot_definition_for_identifier(ast, &footnote_ref.identifier)
+            ast.find_foot_definition_for_identifier(&footnote_ref.identifier)
         {
             if let Some(range) = footnote_def_rename_range(footnote_def) {
                 let text_edit = TextEdit {
@@ -347,7 +367,7 @@ fn rename_footnote_refs(
     state: &State,
 ) -> Option<HashMap<Url, Vec<TextEdit>>> {
     let ast = state.ast_for_uri(req_uri)?;
-    let footnote_refs = find_footnote_references_for_identifier(ast, identifier);
+    let footnote_refs = ast.find_footnote_references_for_identifier(identifier);
     let footnote_refs = footnote_refs.into_iter().fold(
         HashMap::new(),
         |mut acc: HashMap<Url, Vec<TextEdit>>, footnote_ref| {

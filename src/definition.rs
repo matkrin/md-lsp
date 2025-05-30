@@ -7,7 +7,7 @@ use markdown::{
 };
 
 use crate::{
-    ast::{find_definition_for_identifier, find_foot_definition_for_identifier, TraverseNode},
+    ast::TraverseNode,
     links::{resolve_link, ResolvedLink},
     state::State,
 };
@@ -49,12 +49,14 @@ fn handle_link_to_heading(link: &Link, state: &State) -> Option<Location> {
 
 fn handle_link_ref(req_uri: &Url, link_ref: &LinkReference, state: &State) -> Option<Location> {
     let req_ast = state.ast_for_uri(req_uri).unwrap();
-    find_definition_for_identifier(req_ast, &link_ref.identifier).and_then(|def| {
-        def.position.as_ref().map(|pos| Location {
-            uri: req_uri.clone(),
-            range: range_from_position(pos),
+    req_ast
+        .find_definition_for_identifier(&link_ref.identifier)
+        .and_then(|def| {
+            def.position.as_ref().map(|pos| Location {
+                uri: req_uri.clone(),
+                range: range_from_position(pos),
+            })
         })
-    })
 }
 
 fn handle_link_footnote(
@@ -63,12 +65,14 @@ fn handle_link_footnote(
     state: &State,
 ) -> Option<Location> {
     let req_ast = state.ast_for_uri(req_uri).unwrap();
-    find_foot_definition_for_identifier(req_ast, &foot_ref.identifier).and_then(|foot_def| {
-        foot_def.position.as_ref().map(|pos| Location {
-            uri: req_uri.clone(),
-            range: range_from_position(pos),
+    req_ast
+        .find_foot_definition_for_identifier(&foot_ref.identifier)
+        .and_then(|foot_def| {
+            foot_def.position.as_ref().map(|pos| Location {
+                uri: req_uri.clone(),
+                range: range_from_position(pos),
+            })
         })
-    })
 }
 
 /// Takes markdown::unist::Position`, returned `Position in `Range` from `lsp_types::Position`

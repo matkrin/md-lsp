@@ -4,10 +4,7 @@ use lsp_types::{
 use markdown::mdast::{FootnoteReference, Heading, Link, LinkReference, Node};
 
 use crate::{
-    ast::{
-        find_def_for_link_ref, find_footnote_def_for_footnote_ref, find_headings,
-        find_next_heading, get_heading_text, TraverseNode,
-    },
+    ast::{get_heading_text, TraverseNode},
     definition::range_from_position,
     links::{resolve_link, ResolvedLink},
     state::State,
@@ -41,7 +38,7 @@ pub fn hover(params: &HoverParams, state: &State) -> Option<Hover> {
 
 fn handle_heading(req_uri: &Url, req_heading: &Heading, state: &State) -> Option<String> {
     state.ast_for_uri(req_uri).map(|ast| {
-        let headings = find_headings(ast);
+        let headings = ast.find_headings();
         headings.into_iter().fold(String::new(), |acc, heading| {
             if let Some(heading_text) = get_heading_text(heading) {
                 let mut outline = format!("{acc}\n{}", add_pounds(heading_text, heading.depth));
@@ -73,7 +70,7 @@ fn handle_link_heading(target_uri: &Url, heading: &Heading, state: &State) -> Op
     let target_ast = state.ast_for_uri(target_uri)?;
     let linked_heading_pos = heading.position.as_ref()?;
     let depth = heading.depth;
-    match find_next_heading(target_ast, linked_heading_pos.end.line, depth) {
+    match target_ast.find_next_heading(linked_heading_pos.end.line, depth) {
         Some(next_heading) => {
             let next_heading_pos = next_heading.position.as_ref()?;
             let range = Range {
@@ -110,7 +107,7 @@ fn handle_link_other_file(target_uri: &Url, state: &State) -> Option<String> {
 
 fn handle_link_reference(req_uri: &Url, link_ref: &LinkReference, state: &State) -> Option<String> {
     let ast = state.ast_for_uri(req_uri)?;
-    let def = find_def_for_link_ref(ast, link_ref)?;
+    let def = ast.find_def_for_link_ref(link_ref)?;
     def.position.as_ref().and_then(|pos| {
         let range = range_from_position(pos);
         state.buffer_range_for_uri(req_uri, &range)
@@ -123,7 +120,7 @@ fn handle_footnote_reference(
     state: &State,
 ) -> Option<String> {
     let ast = state.ast_for_uri(req_uri)?;
-    let footnote_def_node = find_footnote_def_for_footnote_ref(ast, footnote_ref)?;
+    let footnote_def_node = ast.find_footnote_def_for_footnote_ref(footnote_ref)?;
     footnote_def_node.position.as_ref().and_then(|pos| {
         let range = range_from_position(pos);
         state.buffer_range_for_uri(req_uri, &range)

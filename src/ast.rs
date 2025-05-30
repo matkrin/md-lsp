@@ -3,23 +3,6 @@ use markdown::mdast::{
     Text,
 };
 
-/// Recursive AST traversal
-#[macro_export]
-macro_rules! traverse_ast {
-    ($node: expr, $func: expr $(, $args: expr)*) => {
-        if let Some(children) = $node.children() {
-            for child in children {
-                if let Some(result) = $func(child, $($args),*) {
-                    return Some(result);
-                }
-            }
-            None
-        } else {
-            None
-        }
-    };
-}
-
 pub struct AstIterator<'a> {
     stack: Vec<&'a Node>,
 }
@@ -46,17 +29,47 @@ impl<'a> Iterator for AstIterator<'a> {
 }
 
 pub trait TraverseNode {
+    fn ast_iter(&self) -> impl Iterator<Item = &Node>;
+    // fn find_nodes<T, F>(&self, extractor: F) -> Vec<&T>
+    // where
+    //     F: Fn(&Node) -> Option<&T>;
     fn find_linkable_for_position(&self, line: u32, character: u32) -> Option<&Node>;
     fn find_definition_for_position(&self, line: u32, character: u32) -> Option<&Node>;
     fn find_heading_for_link(&self, link: &Link) -> Option<&Heading>;
     fn find_heading_for_link_identifier(&self, link: &str) -> Option<&Heading>;
     fn find_definition_for_identifier(&self, identifier: &str) -> Option<&Definition>;
+    fn find_foot_definition_for_identifier(&self, identifier: &str) -> Option<&FootnoteDefinition>;
+    fn find_link_references_for_identifier(&self, identifier: &str) -> Vec<&LinkReference>;
+    fn find_footnote_references_for_identifier(&self, identifier: &str) -> Vec<&FootnoteReference>;
+    fn find_headings(&self) -> Vec<&Heading>;
+    fn find_links(&self) -> Vec<&Link>;
+    fn find_defintions(&self) -> Vec<&Definition>;
+    fn find_link_references(&self) -> Vec<&LinkReference>;
+    fn find_footnote_definitions(&self) -> Vec<&FootnoteDefinition>;
+    fn find_footnote_references(&self) -> Vec<&FootnoteReference>;
+    fn find_html_nodes(&self) -> Vec<&Html>;
+    fn find_next_heading(&self, end_line: usize, depth: u8) -> Option<&Heading>;
+    fn find_def_for_link_ref(&self, link_ref: &LinkReference) -> Option<&Definition>;
+    fn find_footnote_def_for_footnote_ref(
+        &self,
+        foot_ref: &FootnoteReference,
+    ) -> Option<&FootnoteDefinition>;
 }
 
 impl TraverseNode for Node {
-    /// Finds a linkable node at the given position
+    fn ast_iter(&self) -> impl Iterator<Item = &Node> {
+        AstIterator::new(self)
+    }
+
+    // fn find_nodes<T, F>(&self, extractor: F) -> Vec<&T>
+    // where
+    //     F: Fn(&Node) -> Option<&T>,
+    // {
+    //     self.ast_iter().filter_map(extractor).collect()
+    // }
+
     fn find_linkable_for_position(&self, line: u32, character: u32) -> Option<&Node> {
-        AstIterator::new(self).find(|node| match node {
+        self.ast_iter().find(|node| match node {
             Node::Heading(Heading { position, .. })
             | Node::Link(Link { position, .. })
             | Node::LinkReference(LinkReference { position, .. })
@@ -74,7 +87,7 @@ impl TraverseNode for Node {
         })
     }
     fn find_definition_for_position(&self, line: u32, character: u32) -> Option<&Node> {
-        AstIterator::new(self).find(|node| match node {
+        self.ast_iter().find(|node| match node {
             Node::Heading(Heading { position, .. })
             | Node::Definition(Definition { position, .. })
             | Node::FootnoteDefinition(FootnoteDefinition { position, .. }) => {
@@ -95,7 +108,7 @@ impl TraverseNode for Node {
         let target = link.url.replace('#', "");
         let normalized_target = target.to_lowercase().replace(' ', "-");
 
-        AstIterator::new(self).find_map(|node| {
+        self.ast_iter().find_map(|node| {
             let Node::Heading(heading) = node else {
                 return None;
             };
@@ -115,7 +128,7 @@ impl TraverseNode for Node {
         let target = link_identifier.replace('#', "");
         let normalized_target = target.to_lowercase().replace(' ', "-");
 
-        AstIterator::new(self).find_map(|node| {
+        self.ast_iter().find_map(|node| {
             let Node::Heading(heading) = node else {
                 return None;
             };
@@ -130,208 +143,128 @@ impl TraverseNode for Node {
             }
         })
     }
+
     fn find_definition_for_identifier(&self, identifier: &str) -> Option<&Definition> {
-        AstIterator::new(self).find_map(|node| {
-            if let Node::Definition(def) = node {
-                if def.identifier == identifier {
-                    Some(def)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
+        self.ast_iter().find_map(|node| match node {
+            Node::Definition(def) if def.identifier == identifier => Some(def),
+            _ => None,
         })
     }
-}
 
-pub fn find_definition_for_identifier<'a>(
-    node: &'a Node,
-    identifier: &str,
-) -> Option<&'a Definition> {
-    if let Node::Definition(def) = node {
-        if def.identifier == identifier {
-            return Some(def);
-        }
+    fn find_foot_definition_for_identifier(&self, identifier: &str) -> Option<&FootnoteDefinition> {
+        self.ast_iter().find_map(|node| match node {
+            Node::FootnoteDefinition(def) if def.identifier == identifier => Some(def),
+            _ => None,
+        })
     }
 
-    traverse_ast!(node, find_definition_for_identifier, identifier)
-}
-
-pub fn find_foot_definition_for_identifier<'a>(
-    node: &'a Node,
-    identifier: &str,
-) -> Option<&'a FootnoteDefinition> {
-    if let Node::FootnoteDefinition(def) = node {
-        if def.identifier == identifier {
-            return Some(def);
-        }
+    fn find_link_references_for_identifier(&self, identifier: &str) -> Vec<&LinkReference> {
+        self.ast_iter()
+            .filter_map(|node| match node {
+                Node::LinkReference(lref) if lref.identifier == identifier => Some(lref),
+                _ => None,
+            })
+            .collect()
     }
 
-    traverse_ast!(node, find_foot_definition_for_identifier, identifier)
-}
-
-pub fn find_link_references_for_identifier<'a>(
-    node: &'a Node,
-    identifier: &str,
-) -> Vec<&'a LinkReference> {
-    let mut link_refs = Vec::new();
-    match node {
-        Node::LinkReference(lref) => {
-            if lref.identifier == identifier {
-                link_refs.push(lref)
-            }
-        }
-        _ => {
-            if let Some(children) = node.children() {
-                for child in children {
-                    link_refs.extend(find_link_references_for_identifier(child, identifier))
-                }
-            }
-        }
+    fn find_footnote_references_for_identifier(&self, identifier: &str) -> Vec<&FootnoteReference> {
+        self.ast_iter()
+            .filter_map(|node| match node {
+                Node::FootnoteReference(fn_ref) if fn_ref.identifier == identifier => Some(fn_ref),
+                _ => None,
+            })
+            .collect()
     }
-    link_refs
-}
 
-pub fn find_footnote_references_for_identifier<'a>(
-    node: &'a Node,
-    identifier: &str,
-) -> Vec<&'a FootnoteReference> {
-    let mut footnote_refs = Vec::new();
-    match node {
-        Node::FootnoteReference(fn_ref) => {
-            if fn_ref.identifier == identifier {
-                footnote_refs.push(fn_ref)
-            }
-        }
-        _ => {
-            if let Some(children) = node.children() {
-                for child in children {
-                    footnote_refs.extend(find_footnote_references_for_identifier(child, identifier))
-                }
-            }
-        }
+    fn find_headings(&self) -> Vec<&Heading> {
+        self.ast_iter()
+            .filter_map(|node| match node {
+                Node::Heading(heading) => Some(heading),
+                _ => None,
+            })
+            .collect()
     }
-    footnote_refs
-}
 
-pub fn find_headings(node: &Node) -> Vec<&Heading> {
-    let mut headings = Vec::new();
-    match node {
-        Node::Heading(heading) => {
-            headings.push(heading);
-        }
-        _ => {
-            if let Some(children) = node.children() {
-                for child in children {
-                    headings.extend(find_headings(child))
-                }
-            }
-        }
+    fn find_links(&self) -> Vec<&Link> {
+        self.ast_iter()
+            .filter_map(|node| match node {
+                Node::Link(link) => Some(link),
+                _ => None,
+            })
+            .collect()
     }
-    headings
-}
 
-pub fn find_links(node: &Node) -> Vec<&Link> {
-    let mut links = Vec::new();
-    match node {
-        Node::Link(link) => {
-            links.push(link);
-        }
-        _ => {
-            if let Some(children) = node.children() {
-                for child in children {
-                    links.extend(find_links(child))
-                }
-            }
-        }
+    fn find_defintions(&self) -> Vec<&Definition> {
+        self.ast_iter()
+            .filter_map(|node| match node {
+                Node::Definition(def) => Some(def),
+                _ => None,
+            })
+            .collect()
     }
-    links
-}
 
-pub fn find_defintions(node: &Node) -> Vec<&Definition> {
-    let mut definitions = Vec::new();
-    match node {
-        Node::Definition(def) => {
-            definitions.push(def);
-        }
-        _ => {
-            if let Some(children) = node.children() {
-                for child in children {
-                    definitions.extend(find_defintions(child))
-                }
-            }
-        }
+    fn find_link_references(&self) -> Vec<&LinkReference> {
+        self.ast_iter()
+            .filter_map(|node| match node {
+                Node::LinkReference(link_ref) => Some(link_ref),
+                _ => None,
+            })
+            .collect()
     }
-    definitions
-}
 
-pub fn find_link_references(node: &Node) -> Vec<&LinkReference> {
-    let mut link_refs = Vec::new();
-    match node {
-        Node::LinkReference(link_ref) => {
-            link_refs.push(link_ref);
-        }
-        _ => {
-            if let Some(children) = node.children() {
-                for child in children {
-                    link_refs.extend(find_link_references(child))
-                }
-            }
-        }
+    fn find_footnote_definitions(&self) -> Vec<&FootnoteDefinition> {
+        self.ast_iter()
+            .filter_map(|node| match node {
+                Node::FootnoteDefinition(footnote_def) => Some(footnote_def),
+                _ => None,
+            })
+            .collect()
     }
-    link_refs
-}
 
-pub fn find_footnote_definitions(node: &Node) -> Vec<&FootnoteDefinition> {
-    let mut footnote_defs = Vec::new();
-    match node {
-        Node::FootnoteDefinition(footnote_def) => {
-            footnote_defs.push(footnote_def);
-        }
-        _ => {
-            if let Some(children) = node.children() {
-                for child in children {
-                    footnote_defs.extend(find_footnote_definitions(child))
-                }
-            }
-        }
+    fn find_footnote_references(&self) -> Vec<&FootnoteReference> {
+        self.ast_iter()
+            .filter_map(|node| match node {
+                Node::FootnoteReference(footnote_ref) => Some(footnote_ref),
+                _ => None,
+            })
+            .collect()
     }
-    footnote_defs
-}
 
-pub fn find_footnote_references(node: &Node) -> Vec<&FootnoteReference> {
-    let mut footnote_refs = Vec::new();
-    match node {
-        Node::FootnoteReference(footnote_ref) => {
-            footnote_refs.push(footnote_ref);
-        }
-        _ => {
-            if let Some(children) = node.children() {
-                for child in children {
-                    footnote_refs.extend(find_footnote_references(child))
-                }
-            }
-        }
+    fn find_html_nodes(&self) -> Vec<&Html> {
+        self.ast_iter()
+            .filter_map(|node| match node {
+                Node::Html(html) => Some(html),
+                _ => None,
+            })
+            .collect()
     }
-    footnote_refs
-}
 
-pub fn find_html_nodes(node: &Node) -> Vec<&Html> {
-    let mut htmls = Vec::new();
-    match node {
-        Node::Html(html) => {
-            htmls.push(html);
-        }
-        _ => {
-            if let Some(children) = node.children() {
-                for child in children {
-                    htmls.extend(find_html_nodes(child))
-                }
-            }
-        }
+    fn find_next_heading(&self, end_line: usize, depth: u8) -> Option<&Heading> {
+        self.ast_iter().find_map(|node| match node {
+            Node::Heading(heading) => match &heading.position {
+                Some(pos) if end_line < pos.start.line && depth == heading.depth => Some(heading),
+                _ => None,
+            },
+            _ => None,
+        })
     }
-    htmls
+
+    fn find_def_for_link_ref(&self, link_ref: &LinkReference) -> Option<&Definition> {
+        self.ast_iter().find_map(|node| match node {
+            Node::Definition(def) if def.identifier == link_ref.identifier => Some(def),
+            _ => None,
+        })
+    }
+
+    fn find_footnote_def_for_footnote_ref(
+        &self,
+        foot_ref: &FootnoteReference,
+    ) -> Option<&FootnoteDefinition> {
+        self.ast_iter().find_map(|node| match node {
+            Node::FootnoteDefinition(def) if def.identifier == foot_ref.identifier => Some(def),
+            _ => None,
+        })
+    }
 }
 
 pub fn get_heading_text(heading: &Heading) -> Option<&str> {
@@ -341,44 +274,6 @@ pub fn get_heading_text(heading: &Heading) -> Option<&str> {
         };
     }
     None
-}
-
-pub fn find_next_heading(node: &Node, end_line: usize, depth: u8) -> Option<&Heading> {
-    if let Node::Heading(heading) = node {
-        if let Some(pos) = &heading.position {
-            if end_line < pos.start.line && depth == heading.depth {
-                return Some(heading);
-            }
-        }
-    }
-
-    traverse_ast!(node, find_next_heading, end_line, depth)
-}
-
-pub fn find_def_for_link_ref<'a>(
-    node: &'a Node,
-    link_ref: &LinkReference,
-) -> Option<&'a Definition> {
-    if let Node::Definition(def) = node {
-        if link_ref.identifier == def.identifier {
-            return Some(def);
-        }
-    }
-
-    traverse_ast!(node, find_def_for_link_ref, link_ref)
-}
-
-pub fn find_footnote_def_for_footnote_ref<'a>(
-    node: &'a Node,
-    foot_ref: &FootnoteReference,
-) -> Option<&'a FootnoteDefinition> {
-    if let Node::FootnoteDefinition(def) = node {
-        if foot_ref.identifier == def.identifier {
-            return Some(def);
-        }
-    }
-
-    traverse_ast!(node, find_footnote_def_for_footnote_ref, foot_ref)
 }
 
 #[cfg(test)]
@@ -471,8 +366,8 @@ mod tests {
     #[test]
     fn test_find_definition_for_identifier() {
         let ast = ast();
-        let found_definition_1 = find_definition_for_identifier(&ast, "google-link");
-        let found_definition_2 = find_definition_for_identifier(&ast, "duckduckgo");
+        let found_definition_1 = ast.find_definition_for_identifier("google-link");
+        let found_definition_2 = ast.find_definition_for_identifier("duckduckgo");
         insta::assert_debug_snapshot!(found_definition_1);
         insta::assert_debug_snapshot!(found_definition_2);
     }
@@ -480,69 +375,69 @@ mod tests {
     #[test]
     fn test_find_foot_definition_for_identifier() {
         let ast = ast();
-        let found_footnote_definition = find_foot_definition_for_identifier(&ast, "1");
+        let found_footnote_definition = ast.find_foot_definition_for_identifier("1");
         insta::assert_debug_snapshot!(found_footnote_definition);
     }
 
     #[test]
     fn test_find_link_references_for_identifier() {
         let ast = ast();
-        let found_link_refs = find_link_references_for_identifier(&ast, "google-link");
+        let found_link_refs = ast.find_link_references_for_identifier("google-link");
         insta::assert_debug_snapshot!(found_link_refs);
     }
     #[test]
     fn test_find_footnote_references_for_identifier() {
         let ast = ast();
-        let found_footnote_refs = find_footnote_references_for_identifier(&ast, "multi");
+        let found_footnote_refs = ast.find_footnote_references_for_identifier("multi");
         insta::assert_debug_snapshot!(found_footnote_refs);
     }
 
     #[test]
     fn test_find_headings() {
         let ast = ast();
-        let headings = find_headings(&ast);
+        let headings = ast.find_headings();
         insta::assert_debug_snapshot!(headings);
     }
 
     #[test]
     fn test_find_links() {
         let ast = ast();
-        let links = find_links(&ast);
+        let links = ast.find_links();
         insta::assert_debug_snapshot!(links);
     }
 
     #[test]
     fn test_find_defintions() {
         let ast = ast();
-        let defs = find_defintions(&ast);
+        let defs = ast.find_defintions();
         insta::assert_debug_snapshot!(defs);
     }
 
     #[test]
     fn test_find_link_references() {
         let ast = ast();
-        let link_refs = find_link_references(&ast);
+        let link_refs = ast.find_link_references();
         insta::assert_debug_snapshot!(link_refs);
     }
 
     #[test]
     fn test_find_footnote_definitions() {
         let ast = ast();
-        let footnote_defs = find_footnote_definitions(&ast);
+        let footnote_defs = ast.find_footnote_definitions();
         insta::assert_debug_snapshot!(footnote_defs);
     }
 
     #[test]
     fn test_find_footnote_references() {
         let ast = ast();
-        let footnote_refs = find_footnote_references(&ast);
+        let footnote_refs = ast.find_footnote_references();
         insta::assert_debug_snapshot!(footnote_refs);
     }
 
     #[test]
     fn test_find_html_nodes() {
         let ast = ast();
-        let htmls = find_html_nodes(&ast);
+        let htmls = ast.find_html_nodes();
         insta::assert_debug_snapshot!(htmls);
     }
 
@@ -584,8 +479,8 @@ mod tests {
     #[test]
     fn test_find_next_heading() {
         let ast = ast();
-        let next_heading_1 = find_next_heading(&ast, 30, 3);
-        let next_heading_2 = find_next_heading(&ast, 30, 5);
+        let next_heading_1 = ast.find_next_heading(30, 3);
+        let next_heading_2 = ast.find_next_heading(30, 5);
         insta::assert_debug_snapshot!(next_heading_1);
         assert_eq!(next_heading_2, None);
     }
@@ -626,7 +521,7 @@ mod tests {
             identifier: "google-link".to_string(),
             label: Some("google-link".to_string()),
         };
-        let found_definition = find_def_for_link_ref(&ast, &link_ref);
+        let found_definition = ast.find_def_for_link_ref(&link_ref);
         insta::assert_debug_snapshot!(found_definition);
     }
 
@@ -650,7 +545,7 @@ mod tests {
             identifier: "1".to_string(),
             label: Some("1".to_string()),
         };
-        let found_footnote_ref = find_footnote_def_for_footnote_ref(&ast, &footnote_ref);
+        let found_footnote_ref = ast.find_footnote_def_for_footnote_ref(&footnote_ref);
         insta::assert_debug_snapshot!(found_footnote_ref);
     }
 }

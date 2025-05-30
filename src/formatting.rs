@@ -1,5 +1,7 @@
 use anyhow::Result;
-use lsp_types::{DocumentFormattingParams, DocumentRangeFormattingParams, Position, Range, TextEdit};
+use lsp_types::{
+    DocumentFormattingParams, DocumentRangeFormattingParams, Position, Range, TextEdit,
+};
 
 use crate::state::State;
 
@@ -23,7 +25,10 @@ pub fn formatting(params: &DocumentFormattingParams, state: &State) -> Option<Ve
     })?
 }
 
-pub fn range_formatting(params: &DocumentRangeFormattingParams, state: &State) -> Option<Vec<TextEdit>> {
+pub fn range_formatting(
+    params: &DocumentRangeFormattingParams,
+    state: &State,
+) -> Option<Vec<TextEdit>> {
     let req_uri = &params.text_document.uri;
     let req_range = &params.range;
 

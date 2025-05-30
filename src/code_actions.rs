@@ -3,11 +3,7 @@ use std::collections::HashMap;
 use lsp_types::{CodeAction, CodeActionParams, Position, Range, TextEdit, Url, WorkspaceEdit};
 use markdown::mdast::{Heading, Html};
 
-use crate::{
-    ast::{find_headings, find_html_nodes},
-    rename::get_text_child,
-    state::State,
-};
+use crate::{ast::TraverseNode, rename::get_text_child, state::State};
 
 const TOC_START: &str = "<!--toc:start-->";
 const TOC_END: &str = "<!--toc:end-->";
@@ -18,8 +14,9 @@ pub fn code_actions(params: &CodeActionParams, state: &State) -> Option<Vec<Code
 
     let mut code_actions = Vec::new();
     let ast = state.ast_for_uri(req_uri)?;
-    let headings = find_headings(ast);
-    let toc_tags: Vec<&Html> = find_html_nodes(ast)
+    let headings = ast.find_headings();
+    let toc_tags: Vec<&Html> = ast
+        .find_html_nodes()
         .into_iter()
         .filter(|html| html.value == TOC_START || html.value == TOC_END)
         .collect();

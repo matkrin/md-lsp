@@ -6,11 +6,9 @@ use lsp_types::{
 use markdown::mdast::{FootnoteDefinition, Heading, Node, Text};
 
 use crate::{
-    ast::{
-        find_defintions, find_footnote_definitions, find_headings, find_next_heading,
-        get_heading_text,
-    },
-    state::State, links::url_encode,
+    ast::{get_heading_text, TraverseNode},
+    links::url_encode,
+    state::State,
 };
 
 pub fn completion(params: CompletionParams, state: &State) -> Option<CompletionList> {
@@ -19,10 +17,16 @@ pub fn completion(params: CompletionParams, state: &State) -> Option<CompletionL
     // let trigger_kind = context.trigger_kind;
     let trigger_character = match params.context {
         Some(context) => context.trigger_character,
-        None => state.cursor_char(&req_uri, &position).map(|c| c.to_string()),
+        None => state
+            .cursor_char(&req_uri, &position)
+            .map(|c| c.to_string()),
     };
     let peek_behind = state.peek_behind_position(&req_uri, &position);
-    log::info!("CURSOR CHAR : {:?}, PEEK BEHIND: {:?}", &trigger_character, &peek_behind);
+    log::info!(
+        "CURSOR CHAR : {:?}, PEEK BEHIND: {:?}",
+        &trigger_character,
+        &peek_behind
+    );
 
     match trigger_character.as_deref() {
         Some("(") if peek_behind == Some(']') => link_completion(&req_uri, state),
@@ -41,7 +45,8 @@ fn link_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
         .md_files
         .iter()
         .flat_map(|(url, md_file)| {
-            let headings = find_headings(&md_file.ast);
+            let ast = &md_file.ast;
+            let headings = ast.find_headings();
             headings.into_iter().map(|heading| {
                 let file_path = url.to_file_path().ok()?;
                 let relative_path = relative_path(root_uri, &file_path)?;
@@ -49,9 +54,13 @@ fn link_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
                 let range = link_detail_range(&md_file.ast, heading)?;
                 let detail = state.buffer_range_for_uri(url, &range)?;
                 let label = if Some(relative_path.as_str()) == req_filename.to_str() {
-                    format!( "#{}",  heading_text.to_lowercase().replace(' ', "-"))
+                    format!("#{}", heading_text.to_lowercase().replace(' ', "-"))
                 } else {
-                    format!( "/{}#{}", url_encode(&relative_path), heading_text.to_lowercase().replace(' ', "-"))
+                    format!(
+                        "/{}#{}",
+                        url_encode(&relative_path),
+                        heading_text.to_lowercase().replace(' ', "-")
+                    )
                 };
 
                 Some(CompletionItem {
@@ -77,7 +86,8 @@ fn wikilink_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
         .md_files
         .iter()
         .flat_map(|(url, md_file)| {
-            let headings = find_headings(&md_file.ast);
+            let ast = &md_file.ast;
+            let headings = ast.find_headings();
             headings.into_iter().map(|heading| {
                 let file_path = url.to_file_path().ok()?;
                 let relative_path = relative_path(&root_uri, &file_path)?;
@@ -108,7 +118,7 @@ fn wikilink_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
 
 fn link_detail_range(ast: &Node, heading: &Heading) -> Option<Range> {
     let heading_pos = heading.position.as_ref()?;
-    match find_next_heading(ast, heading_pos.end.line, heading.depth) {
+    match ast.find_next_heading(heading_pos.end.line, heading.depth) {
         Some(next_heading) => Some(Range {
             start: Position {
                 line: (heading_pos.start.line - 1) as u32,
@@ -134,7 +144,7 @@ fn link_detail_range(ast: &Node, heading: &Heading) -> Option<Range> {
 
 fn link_ref_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
     let ast = state.ast_for_uri(req_uri)?;
-    let definitions = find_defintions(ast);
+    let definitions = ast.find_defintions();
     let def_completion_items = definitions
         .into_iter()
         .map(|def| CompletionItem {
@@ -152,7 +162,7 @@ fn link_ref_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
 
 fn footnote_ref_completion(req_uri: &Url, state: &State) -> Option<CompletionList> {
     let ast = state.ast_for_uri(req_uri)?;
-    let footnote_defs = find_footnote_definitions(ast);
+    let footnote_defs = ast.find_footnote_definitions();
     let completion_items: Option<Vec<CompletionItem>> = footnote_defs
         .into_iter()
         .map(|footnote_def| {

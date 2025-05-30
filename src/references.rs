@@ -1,11 +1,9 @@
 use lsp_types::{Location, Position as LspPosition, ReferenceParams, Url};
 use markdown::mdast::{Definition, FootnoteDefinition, Heading, Node};
 
-use crate::ast::{find_link_references_for_identifier, find_links, TraverseNode};
+use crate::ast::TraverseNode;
 use crate::links::{resolve_link, ResolvedLink};
-use crate::{
-    ast::find_footnote_references_for_identifier, definition::range_from_position, state::State,
-};
+use crate::{definition::range_from_position, state::State};
 
 pub fn references(params: &ReferenceParams, state: &State) -> Option<Vec<Location>> {
     let text_document_params = &params.text_document_position;
@@ -45,7 +43,7 @@ fn handle_definition(
     req_uri: &Url,
     definition: &Definition,
 ) -> Option<Vec<Location>> {
-    let link_refs = find_link_references_for_identifier(req_ast, &definition.identifier);
+    let link_refs = req_ast.find_link_references_for_identifier(&definition.identifier);
     link_refs
         .into_iter()
         .map(|link_ref| {
@@ -62,7 +60,7 @@ fn handle_footnote_definition(
     req_uri: &Url,
     fn_definition: &FootnoteDefinition,
 ) -> Option<Vec<Location>> {
-    let footnote_refs = find_footnote_references_for_identifier(req_ast, &fn_definition.identifier);
+    let footnote_refs = req_ast.find_footnote_references_for_identifier(&fn_definition.identifier);
     footnote_refs
         .into_iter()
         .map(|footnote_ref| {
@@ -80,7 +78,9 @@ pub fn get_heading_refs<'a>(
 ) -> Vec<(&'a Url, ResolvedLink<'a>)> {
     let mut heading_refs = Vec::new();
     for (url, md_file) in state.md_files.iter() {
-        let mut resolved_links = find_links(&md_file.ast)
+        let ast = &md_file.ast;
+        let mut resolved_links = ast
+            .find_links()
             .into_iter()
             .filter_map(|link| {
                 let resolved_link = resolve_link(link, state);

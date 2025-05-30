@@ -1,15 +1,18 @@
 use lsp_types::{DocumentSymbol, DocumentSymbolParams, Location, SymbolKind, WorkspaceSymbol};
 
 use crate::{
-    ast::{find_headings, get_heading_text},
+    ast::{get_heading_text, TraverseNode},
     definition::range_from_position,
     state::State,
 };
 
-pub fn document_symbols(params: &DocumentSymbolParams, state: &State) -> Option<Vec<DocumentSymbol>> {
+pub fn document_symbols(
+    params: &DocumentSymbolParams,
+    state: &State,
+) -> Option<Vec<DocumentSymbol>> {
     let req_uri = &params.text_document.uri;
     let req_ast = state.ast_for_uri(req_uri)?;
-    let headings = find_headings(req_ast);
+    let headings = req_ast.find_headings();
 
     headings
         .into_iter()
@@ -18,7 +21,7 @@ pub fn document_symbols(params: &DocumentSymbolParams, state: &State) -> Option<
                 heading.position.as_ref().map(|pos| {
                     let range = range_from_position(pos);
                     let name = add_pounds(heading_text, heading.depth);
-                    #[allow(deprecated)]  // TODO: don't know how else
+                    #[allow(deprecated)] // TODO: don't know how else
                     DocumentSymbol {
                         name,
                         detail: None,
@@ -40,7 +43,8 @@ pub fn workspace_symbols(state: &State) -> Option<Vec<WorkspaceSymbol>> {
         .md_files
         .iter()
         .flat_map(|(url, md_file)| {
-            let headings = find_headings(&md_file.ast);
+            let ast = &md_file.ast;
+            let headings = ast.find_headings();
             headings.into_iter().map(|heading| {
                 get_heading_text(heading).and_then(|heading_text| {
                     heading.position.as_ref().map(|pos| {

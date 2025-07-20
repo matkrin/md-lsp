@@ -185,10 +185,23 @@ mod tests {
     #[test]
     fn test_index_md_files() {
         let workspace_folder = create_workspacefolder();
+        let root_path = workspace_folder
+            .uri
+            .to_file_path()
+            .expect("workspace_folder URI should be a valid file path");
         let mut state = init_state();
         state.index_md_files(&[workspace_folder]);
         assert!(!state.md_files.is_empty());
-        let mut file_names: Vec<_> = state.md_files.keys().map(|url| url.path()).collect();
+        let mut file_names: Vec<String> = state
+            .md_files
+            .keys()
+            .filter_map(|url| {
+                url.to_file_path()
+                    .ok()
+                    .and_then(|path| path.strip_prefix(&root_path).ok().map(|p| p.to_path_buf()))
+                    .map(|rel_path| rel_path.display().to_string())
+            })
+            .collect();
         file_names.sort();
         insta::assert_debug_snapshot!(file_names);
     }

@@ -15,18 +15,18 @@ categories = ["development-tools", "text-editors"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.79"
-clap = { version = "4.5.16", features = ["derive"] }
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
 dprint-core = { version = "0.66.1", features = ["formatting"] }
 dprint-plugin-markdown = "0.16.4"
 fern = "0.6.2"
-humantime = "2.1.0"
+humantime = "2.2.0"
 ignore = "0.4.22"
-itertools = "0.12.0"
+itertools = "0.14.0"
 log = "0.4.20"
-lsp-server = "0.7.6"
+lsp-server = "0.7.8"
 lsp-types = "0.95.0"
-markdown = "1.0.0-alpha.16"
+markdown = "1.0.0"
 percent-encoding = "2.3.1"
 regex = "1.10.3"
 serde = "1.0.195"

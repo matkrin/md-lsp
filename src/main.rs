@@ -5,8 +5,9 @@ use clap::{ArgAction, Parser};
 use log::LevelFilter;
 use lsp_server::Connection;
 use lsp_types::{
-    CodeActionProviderCapability, HoverProviderCapability, InitializeParams, OneOf, RenameOptions,
-    ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind, WorkDoneProgressOptions,
+    CodeActionProviderCapability, HoverProviderCapability, InitializeParams, InitializeResult,
+    OneOf, RenameOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability,
+    TextDocumentSyncKind, WorkDoneProgressOptions,
 };
 use md_lsp::{server::Server, state::State};
 
@@ -32,53 +33,58 @@ fn main() -> Result<()> {
     // also be implemented to use sockets or HTTP.
     let (connection, io_threads) = Connection::stdio();
 
-    // Run the server and wait for the two threads to end (typically by trigger LSP Exit event).
-    let server_capabilities = serde_json::to_value(ServerCapabilities {
-        definition_provider: Some(OneOf::Left(true)),
-        hover_provider: Some(HoverProviderCapability::Simple(true)),
-        text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
-        references_provider: Some(OneOf::Left(true)),
-        document_symbol_provider: Some(OneOf::Left(true)),
-        workspace_symbol_provider: Some(OneOf::Left(true)),
-        document_formatting_provider: Some(OneOf::Left(true)),
-        document_range_formatting_provider: Some(OneOf::Left(true)),
-        rename_provider: Some(OneOf::Right(RenameOptions {
-            prepare_provider: Some(true),
-            work_done_progress_options: WorkDoneProgressOptions {
-                work_done_progress: None,
-            },
-        })),
-        code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
-        completion_provider: Some(lsp_types::CompletionOptions {
-            resolve_provider: Some(false),
-            trigger_characters: Some(vec![
-                "[".to_string(),
-                "^".to_string(),
-                "(".to_string(),
-                "#".to_string(),
-                "|".to_string(),
-            ]),
-            work_done_progress_options: WorkDoneProgressOptions {
-                work_done_progress: None,
-            },
-            all_commit_characters: None,
-            completion_item: None,
-        }),
-        ..Default::default()
-    })
-    .unwrap();
+    let (id, params) = connection.initialize_start()?;
 
-    let initialization_params = match connection.initialize(server_capabilities) {
-        Ok(it) => it,
-        Err(e) => {
-            if e.channel_is_disconnected() {
-                io_threads.join()?;
-            }
-            return Err(e.into());
-        }
+    // Run the server and wait for the two threads to end (typically by trigger LSP Exit event).
+    let initialize_result = InitializeResult {
+        capabilities: ServerCapabilities {
+            definition_provider: Some(OneOf::Left(true)),
+            hover_provider: Some(HoverProviderCapability::Simple(true)),
+            text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
+            references_provider: Some(OneOf::Left(true)),
+            document_symbol_provider: Some(OneOf::Left(true)),
+            workspace_symbol_provider: Some(OneOf::Left(true)),
+            document_formatting_provider: Some(OneOf::Left(true)),
+            document_range_formatting_provider: Some(OneOf::Left(true)),
+            rename_provider: Some(OneOf::Right(RenameOptions {
+                prepare_provider: Some(true),
+                work_done_progress_options: WorkDoneProgressOptions {
+                    work_done_progress: None,
+                },
+            })),
+            code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
+            completion_provider: Some(lsp_types::CompletionOptions {
+                resolve_provider: Some(false),
+                trigger_characters: Some(vec![
+                    "[".to_string(),
+                    "^".to_string(),
+                    "(".to_string(),
+                    "#".to_string(),
+                    "|".to_string(),
+                ]),
+                work_done_progress_options: WorkDoneProgressOptions {
+                    work_done_progress: None,
+                },
+                all_commit_characters: None,
+                completion_item: None,
+            }),
+            ..Default::default()
+        },
+        server_info: Some(ServerInfo {
+            name: "md-lsp".to_string(),
+            version: Some(env!("CARGO_PKG_VERSION").to_string()),
+        }),
     };
 
-    main_loop(connection, initialization_params)?;
+    let serialized_result = serde_json::to_value(initialize_result)?;
+    if let Err(e) = connection.initialize_finish(id, serialized_result) {
+        if e.channel_is_disconnected() {
+            io_threads.join()?;
+        }
+        return Err(e.into());
+    }
+
+    main_loop(connection, params)?;
     io_threads.join()?;
 
     // Shut down gracefully.

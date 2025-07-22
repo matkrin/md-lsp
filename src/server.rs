@@ -13,8 +13,8 @@ use lsp_types::{
     CodeActionParams, CompletionParams, CompletionResponse, Diagnostic, DiagnosticSeverity,
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
     DocumentFormattingParams, DocumentRangeFormattingParams, DocumentSymbolParams,
-    GotoDefinitionParams, HoverParams, PublishDiagnosticsParams, ReferenceParams, RenameParams,
-    TextDocumentPositionParams, Url, WorkspaceEdit,
+    GotoDefinitionParams, HoverParams, NumberOrString, PublishDiagnosticsParams, ReferenceParams,
+    RenameParams, TextDocumentPositionParams, Url, WorkspaceEdit,
 };
 use serde::Serialize;
 
@@ -149,7 +149,11 @@ impl Server {
                 Diagnostic {
                     range: it.range,
                     severity: Some(DiagnosticSeverity::ERROR),
-                    code: None,
+                    code: Some(NumberOrString::Number(
+                        it.error_code()
+                            .try_into()
+                            .expect("error code value to large for i32"),
+                    )),
                     code_description: None,
                     source: Some("md-lsp".to_string()),
                     message: it.message,

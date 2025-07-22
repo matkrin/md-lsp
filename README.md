@@ -72,7 +72,7 @@ $ cargo install --git https://github.com/matkrin/md-lsp.git
 
 ### Neovim
 
-With Neovim version 0.11+, you can use md-lsp without pluings:
+With Neovim version 0.11+, you can use md-lsp without plugins:
 
 ```lua
 vim.lsp.config.md_lsp = {
@@ -117,3 +117,14 @@ roots = [".git"]
 name = "markdown"
 language-servers = [{ name = "md-lsp" }]
 ```
+
+## Diagnostics Error Codes
+
+| Code | Description                                            |
+| ---: | ------------------------------------------------------ |
+|    0 | Invalid Link Syntax                                    |
+|    1 | Link to non-existent heading                           |
+|    2 | Link to non-existent heading in other file             |
+|    3 | Link to non-existent file                              |
+|    4 | Link reference to non-existent link definition         |
+|    5 | Footnote reference to non-existent footnote definition |

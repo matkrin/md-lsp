@@ -13,7 +13,24 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BrokenLinkKind {
+    /// Invalid Link
+    IvalidSyntax,
+    /// Link to non-existent heading
+    HeadingNotFound,
+    /// Link to non-existent heading in other file
+    ExternalHeadingNotFound,
+    /// Link to non-existent file
+    FileNotFound,
+    /// Link reference to non-existent link definition
+    LinkRefNotFound,
+    /// Footnote reference to non-existent footnote definition
+    FootnoteRefNotFound,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BrokenLink {
+    pub kind: BrokenLinkKind,
     pub range: Range,
     pub message: String,
 }
@@ -25,6 +42,19 @@ impl Hash for BrokenLink {
         self.range.end.line.hash(state);
         self.range.end.character.hash(state);
         self.message.hash(state);
+    }
+}
+
+impl BrokenLink {
+    pub fn error_code(&self) -> usize {
+        match self.kind {
+            BrokenLinkKind::IvalidSyntax => 0,
+            BrokenLinkKind::HeadingNotFound => 1,
+            BrokenLinkKind::ExternalHeadingNotFound => 2,
+            BrokenLinkKind::FileNotFound => 3,
+            BrokenLinkKind::LinkRefNotFound => 4,
+            BrokenLinkKind::FootnoteRefNotFound => 5,
+        }
     }
 }
 
@@ -73,21 +103,25 @@ fn handle_broken_link(state: &State, link: &Link) -> Vec<BrokenLink> {
                 let file_name = file_path.file_name().and_then(|f| f.to_str());
                 if link.url.contains('#') {
                     if let Some(f) = file_name {
-                        let range = range_from_position(pos);
-                        let message = format!(
-                            "Link to non-existent heading `{}` in file `{}`",
-                            link.url, f
-                        );
-                        broken_links.push(BrokenLink { range, message })
+                        broken_links.push(BrokenLink {
+                            kind: BrokenLinkKind::ExternalHeadingNotFound,
+                            range: range_from_position(pos),
+                            message: format!(
+                                "Link to non-existent heading `{}` in file `{}`",
+                                link.url, f
+                            ),
+                        })
                     }
                 }
             };
         }
         ResolvedLink::Unresolved => {
             if let Some(pos) = &link.position {
-                let range = range_from_position(pos);
-                let message = format!("Link to non-existent file `{}`", link.url);
-                broken_links.push(BrokenLink { range, message })
+                broken_links.push(BrokenLink {
+                    kind: BrokenLinkKind::FileNotFound,
+                    range: range_from_position(pos),
+                    message: format!("Link to non-existent file `{}`", link.url),
+                })
             };
         }
         _ => {}
@@ -101,6 +135,7 @@ fn handle_broken_heading_link(link: &Link, req_uri: &Url, state: &State) -> Opti
         .and_then(|ast| ast.find_heading_for_link(link));
     if let (Some(pos), None) = (&link.position, found) {
         Some(BrokenLink {
+            kind: BrokenLinkKind::HeadingNotFound,
             range: range_from_position(pos),
             message: format!("Link to non-existent heading `{}`", &link.url),
         })
@@ -117,6 +152,7 @@ fn handle_broken_ref(req_uri: &Url, state: &State) -> Vec<BrokenLink> {
     ranges
         .iter()
         .map(|broken_link_ref| BrokenLink {
+            kind: BrokenLinkKind::LinkRefNotFound,
             range: broken_link_ref.range,
             message: format!(
                 "Link reference to non-existent link definition `{}`",
@@ -134,6 +170,7 @@ fn handle_broken_footnote_ref(req_uri: &Url, state: &State) -> Vec<BrokenLink> {
     ranges
         .iter()
         .map(|broken_link_ref| BrokenLink {
+            kind: BrokenLinkKind::FootnoteRefNotFound,
             range: broken_link_ref.range,
             message: format!(
                 "Footnote reference to non-existent footnote definition `{}`",
@@ -151,6 +188,7 @@ fn handle_invalid_link(req_uri: &Url, state: &State) -> Vec<BrokenLink> {
     ranges
         .iter()
         .map(|broken_link_ref| BrokenLink {
+            kind: BrokenLinkKind::IvalidSyntax,
             range: broken_link_ref.range,
             message: format!("Invalid Link `{}`", broken_link_ref.text),
         })

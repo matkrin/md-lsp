@@ -3,6 +3,7 @@ source: src/state.rs
 expression: file_names
 ---
 [
+    "CHANGELOG.md",
     "README.md",
     "testdata/test file c.md",
     "testdata/test-file-b.md",

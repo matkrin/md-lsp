@@ -1,6 +1,6 @@
 [package]
 name = "md-lsp"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["matkrin <matkrin@protonmail.com>"]
 edition = "2021"
 description = "Markdown language server"
